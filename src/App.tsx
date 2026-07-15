@@ -1,38 +1,9 @@
 import './App.css'
-import { useEffect, useState, type ReactNode } from "react"
-import { Collapsible } from "@base-ui/react/collapsible"
-import {
-  Plus, Search, Inbox, Sun, SlidersHorizontal,
-  Hash, Bell, LayoutTemplate, ChevronDown, CalendarDays, Trash2,
-} from "lucide-react"
+import { useEffect, useState } from "react"
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Separator } from "@/components/ui/separator"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-
-type NavItem = "inbox" | "today" | "upcoming" | "filters"
-
-const navItems: { id: NavItem; label: string; icon: ReactNode }[] = [
-  { id: "inbox", label: "Inbox", icon: <Inbox size={15} /> },
-  { id: "today", label: "Today", icon: <Sun size={15} /> },
-  { id: "upcoming", label: "Upcoming", icon: <CalendarDays size={15} /> },
-  { id: "filters", label: "Filters & Labels", icon: <SlidersHorizontal size={15} /> },
-]
-
-const sidebarProjects = [
-  { name: "Fitness", color: "#f97316" },
-  { name: "Groceries", color: "#8b5cf6" },
-  { name: "Appointments", color: "#3b82f6" },
-]
-
-const teamProjects = [
-  { name: "New Brand", color: "#8b5cf6" },
-  { name: "Website Update", color: "#8b5cf6" },
-  { name: "Product Roadmap", color: "#8b5cf6" },
-  { name: "Meeting Agenda", color: "#8b5cf6" },
-]
+import { TooltipProvider } from "@/components/ui/tooltip"
+import { Sidebar } from "@/components/sidebar/Sidebar"
+import { TodoPanel } from "@/components/todo/TodoPanel"
 
 function App() {
   const [todo, setTodo] = useState<string[]>(() => {
@@ -40,9 +11,6 @@ function App() {
     return stored ? JSON.parse(stored) : []
   })
   const [draft, setDraft] = useState("")
-  const [activeNav, setActiveNav] = useState<NavItem>("inbox")
-  const [myProjectsOpen, setMyProjectsOpen] = useState(true)
-  const [teamOpen, setTeamOpen] = useState(true)
 
   useEffect(() => {
     localStorage.setItem("todo", JSON.stringify(todo))
@@ -55,9 +23,23 @@ function App() {
     setDraft("")
   }
 
-  return (<div>
-    
-    </div>)
+  const removeTask = (index: number) =>
+    setTodo((prev) => prev.filter((_, i) => i !== index))
+
+  return (
+    <TooltipProvider>
+      <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
+        <Sidebar  />
+        <TodoPanel
+          todo={todo}
+          draft={draft}
+          setDraft={setDraft}
+          addTask={addTask}
+          removeTask={removeTask}
+        />
+      </div>
+    </TooltipProvider>
+  )
 }
 
 export default App
