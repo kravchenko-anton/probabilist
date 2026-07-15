@@ -1,44 +1,29 @@
 import './App.css'
-import { useEffect, useState } from "react"
-
-import { TooltipProvider } from "@/components/ui/tooltip"
-import { Sidebar } from "@/components/sidebar/Sidebar"
-import { TodoPanel } from "@/components/todo/TodoPanel"
+import { Navigate, Route, Routes } from "react-router-dom"
+import { Calendar1, CalendarRange, Inbox, Sunrise } from "lucide-react"
+import { Layout } from "@/components/Layout"
+import { DateView } from "@/pages/DateView"
+import { ProjectView } from "@/pages/ProjectView"
 
 function App() {
-  const [todo, setTodo] = useState<string[]>(() => {
-    const stored = localStorage.getItem("todo")
-    return stored ? JSON.parse(stored) : []
-  })
-  const [draft, setDraft] = useState("")
-
-  useEffect(() => {
-    localStorage.setItem("todo", JSON.stringify(todo))
-  }, [todo])
-
-  const addTask = () => {
-    const value = draft.trim()
-    if (!value) return
-    setTodo((prev) => [...prev, value])
-    setDraft("")
-  }
-
-  const removeTask = (index: number) =>
-    setTodo((prev) => prev.filter((_, i) => i !== index))
-
   return (
-    <TooltipProvider>
-      <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
-        <Sidebar  />
-        <TodoPanel
-          todo={todo}
-          draft={draft}
-          setDraft={setDraft}
-          addTask={addTask}
-          removeTask={removeTask}
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Navigate to="/inbox" replace />} />
+        <Route path="inbox" element={<DateView view="inbox" title="Inbox" icon={Inbox} />} />
+        <Route path="today" element={<DateView view="today" title="Today" icon={Calendar1} />} />
+        <Route
+          path="tomorrow"
+          element={<DateView view="tomorrow" title="Tomorrow" icon={Sunrise} />}
         />
-      </div>
-    </TooltipProvider>
+        <Route
+          path="next-7-days"
+          element={<DateView view="next7" title="Next 7 Days" icon={CalendarRange} />}
+        />
+        <Route path="project/:slug" element={<ProjectView />} />
+        <Route path="*" element={<Navigate to="/inbox" replace />} />
+      </Route>
+    </Routes>
   )
 }
 
