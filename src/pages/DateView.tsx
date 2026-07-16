@@ -3,11 +3,14 @@ import type { LucideIcon } from "lucide-react"
 import { inboxTasks } from "@/data/tasks"
 import { groupsForView, type DateViewKind } from "@/lib/task-groups"
 import { formatHeaderDate, formatTime, formatWeekdayShort } from "@/lib/date"
+import { useIsMobile, useMediaQuery } from "@/hooks/use-mobile"
 import { TaskListHeader } from "@/components/tasks/TaskListHeader"
 import { AddTaskBar } from "@/components/tasks/AddTaskBar"
 import { TaskSection } from "@/components/tasks/TaskSection"
 import { TaskRow } from "@/components/tasks/TaskRow"
 import { TaskDetailPane } from "@/components/tasks/TaskDetailPane"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { cn } from "@/lib/utils"
 
 interface DateViewProps {
   view: DateViewKind
@@ -19,13 +22,27 @@ export function DateView({ view, title, icon }: DateViewProps) {
   const groups = useMemo(() => groupsForView(inboxTasks, view), [view])
   const allTasks = useMemo(() => groups.flatMap((group) => group.tasks), [groups])
   const [selectedId, setSelectedId] = useState(allTasks[0]?.id)
+  const [detailOpen, setDetailOpen] = useState(false)
+
+  const isDesktop = useMediaQuery("(min-width: 1024px)")
+  const isMobile = useIsMobile()
 
   const selectedTask =
     allTasks.find((task) => task.id === selectedId) ?? allTasks[0]
 
+  const detailPane = selectedTask ? (
+    <TaskDetailPane
+      title={selectedTask.title}
+      subtitle={selectedTask.subtitle}
+      description={selectedTask.description}
+      dueLabel={`${formatHeaderDate(selectedTask.date)} · ${formatTime(selectedTask.date)}`}
+      footerLabel="Inbox"
+    />
+  ) : null
+
   return (
-    <div className="flex h-screen flex-1">
-      <div className="flex w-[60%] flex-col border-r border-border">
+    <div className="flex h-full flex-1">
+      <div className="flex w-full flex-col border-border lg:w-[60%] lg:border-r">
         <TaskListHeader title={title} icon={icon} />
         <AddTaskBar />
         <div className="flex flex-1 flex-col overflow-y-auto pb-4">
@@ -37,7 +54,10 @@ export function DateView({ view, title, icon }: DateViewProps) {
                   title={task.title}
                   hasNote={!!task.description}
                   selected={task.id === selectedTask?.id}
-                  onSelect={() => setSelectedId(task.id)}
+                  onSelect={() => {
+                    setSelectedId(task.id)
+                    if (!isDesktop) setDetailOpen(true)
+                  }}
                   rightLabel={
                     group.kind === "next7" ? formatWeekdayShort(task.date) : formatTime(task.date)
                   }
@@ -52,21 +72,28 @@ export function DateView({ view, title, icon }: DateViewProps) {
         </div>
       </div>
 
-      <div className="flex-1">
-        {selectedTask ? (
-          <TaskDetailPane
-            title={selectedTask.title}
-            subtitle={selectedTask.subtitle}
-            description={selectedTask.description}
-            dueLabel={`${formatHeaderDate(selectedTask.date)} · ${formatTime(selectedTask.date)}`}
-            footerLabel="Inbox"
-          />
-        ) : (
+      <div className="hidden flex-1 lg:block">
+        {detailPane ?? (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             Select a task
           </div>
         )}
       </div>
+
+      <Sheet open={detailOpen && !isDesktop} onOpenChange={setDetailOpen}>
+        <SheetContent
+          side={isMobile ? "bottom" : "right"}
+          showCloseButton={false}
+          className={cn("gap-0 p-0", isMobile && "rounded-t-2xl")}
+          style={isMobile ? { height: "78dvh" } : undefined}
+        >
+          {isMobile && (
+            <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-white/15" />
+          )}
+          <SheetTitle className="sr-only">Task details</SheetTitle>
+          <div className="min-h-0 flex-1">{detailPane}</div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

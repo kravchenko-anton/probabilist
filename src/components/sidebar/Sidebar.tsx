@@ -1,4 +1,5 @@
-import { NavLink } from "react-router-dom"
+import { useState } from "react"
+import { Link, NavLink, useLocation } from "react-router-dom"
 import {
   BrainCog,
   Calendar1,
@@ -15,7 +16,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { inboxTasks } from "@/data/tasks"
-import { projects, projectTaskCount } from "@/data/projects"
+import { goalProgress } from "@/data/goals"
+import { todosDoneCount } from "@/data/attempts"
+import { useGoals } from "@/lib/goals-store"
+import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
 import { countForView } from "@/lib/task-groups"
 import { cn } from "@/lib/utils"
 
@@ -31,8 +35,6 @@ const topItems = [
   { label: "Inbox", to: "/inbox", icon: Inbox, count: countForView(inboxTasks, "inbox") },
 ]
 
-const dotSlugs = new Set(["september-plan", "life-memo"])
-
 const footerLinks = [
   { label: "Settings", icon: Settings },
   { label: "About", icon: Info },
@@ -40,8 +42,13 @@ const footerLinks = [
 ]
 
 export function Sidebar() {
+  const { goals, attempts } = useGoals()
+  const [createGoalOpen, setCreateGoalOpen] = useState(false)
+  const location = useLocation()
+  const activeAttemptId = new URLSearchParams(location.search).get("attempt")
+
   return (
-    <div className="flex h-screen w-[220px] shrink-0 flex-col bg-sidebar px-3 py-3 text-[13px]">
+    <div className="hidden h-full w-[220px] shrink-0 flex-col overflow-y-auto bg-sidebar px-3 py-3 text-[13px] md:flex">
       <div className="flex cursor-pointer items-center gap-2">
         <BrainCog />
         <h1 className="ml-2 font-medium">Probabilist</h1>
@@ -69,31 +76,68 @@ export function Sidebar() {
       <div className="mt-4 flex flex-col gap-0.5">
         <div className="px-2 py-1 flex items-center justify-between">
           <p className='font-medium  text-xs  text-muted-foreground'> Goals</p>
-          <Plus className="text-muted-foreground" size={15} />
+          <button onClick={() => setCreateGoalOpen(true)} className="text-muted-foreground hover:text-foreground">
+            <Plus size={15} />
+          </button>
         </div>
-        {projects.length > 0 ? projects.map((project) => (
-          <NavLink
-            key={project.slug}
-            to={`/project/${project.slug}`}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-foreground hover:bg-white/5",
-                isActive && "bg-white/5"
-              )
-            }
-          >
-            <span className="flex size-5 items-center justify-center text-[14px] leading-none">
-              {project.emoji}
-            </span>
-            <span className="flex-1 text-left">{project.label}</span>
-            {dotSlugs.has(project.slug) && <span className="size-1.5 rounded-full bg-blue-500" />}
-            <span className="text-muted-foreground">{projectTaskCount(project)}</span>
-          </NavLink>
-        )) : (
+        {goals.length > 0 ? goals.map((goal) => {
+          const goalAttempts = attempts.filter(
+            (attempt) => attempt.goalId === goal.id && attempt.status !== "completed"
+          )
+          return (
+            <div key={goal.slug} className="flex flex-col gap-0.5">
+              <NavLink
+                to={`/goal/${goal.slug}`}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-foreground hover:bg-white/5",
+                    isActive && !activeAttemptId && "bg-white/5"
+                  )
+                }
+              >
+                <span className="flex size-5 items-center justify-center text-[14px] leading-none">
+                  {goal.emoji}
+                </span>
+                <span className="flex-1 truncate text-left">{goal.title}</span>
+                <span className="text-muted-foreground">{Math.round(goalProgress(goal))}%</span>
+              </NavLink>
+
+              {goalAttempts.map((attempt) => {
+                const isActive =
+                  location.pathname === `/goal/${goal.slug}` && activeAttemptId === attempt.id
+                return (
+                  <Link
+                    key={attempt.id}
+                    to={`/goal/${goal.slug}?attempt=${attempt.id}`}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md py-1 pl-9 pr-2 text-xs text-muted-foreground hover:bg-white/5 hover:text-foreground",
+                      isActive && "bg-white/5 text-foreground"
+                    )}
+                  >
+                    <span className="text-[12px] leading-none">{attempt.icon ?? "📝"}</span>
+                    <span className="flex-1 truncate">{attempt.title}</span>
+                    <span
+                      className={cn(
+                        "text-[10px]",
+                        attempt.status === "active" && "text-primary-foreground/70"
+                      )}
+                    >
+                      {todosDoneCount(attempt)}/{attempt.todos.length}
+                    </span>
+                  </Link>
+                )
+              })}
+            </div>
+          )
+        }) : (
           <div className='h-32 flex items-center rounded-md bg-accent w-full'>
             <div className='text-center flex flex-col gap-2'>
               <p className="text-white text-[10px] mx-4">Organize and plan your work with goals</p>
-              <Button size="xs" className="ml-2 mr-2 hover:bg-white hover:text-black w-[40%] mx-auto bg-transparent border-white text-white">
+              <Button
+                onClick={() => setCreateGoalOpen(true)}
+                size="xs"
+                className="ml-2 mr-2 hover:bg-white hover:text-black w-[40%] mx-auto bg-transparent border-white text-white"
+              >
                 New goal
               </Button>
             </div>
@@ -101,6 +145,8 @@ export function Sidebar() {
         )
         }
       </div>
+
+      <GoalFormDialog open={createGoalOpen} onOpenChange={setCreateGoalOpen} />
 
       <div className="mt-auto flex flex-col gap-3 pt-4">
         <div className="flex flex-col gap-0.5">

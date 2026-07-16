@@ -13,9 +13,6 @@ export interface Goal {
   title: string
   emoji: string
   description?: string
-  owner: string
-  members: string[]
-  notifyMembers: boolean
   timePeriodLabel: string
   startDate: Date
   endDate: Date
@@ -23,11 +20,15 @@ export interface Goal {
   metrics: GoalMetric[]
 }
 
-export function metricProgress(metric: GoalMetric) {
-  const { startValue, targetValue, currentValue } = metric
-  if (targetValue === startValue) return currentValue >= targetValue ? 100 : 0
-  const ratio = (currentValue - startValue) / (targetValue - startValue)
+export function metricProgressAt(metric: GoalMetric, value: number) {
+  const { startValue, targetValue } = metric
+  if (targetValue === startValue) return value >= targetValue ? 100 : 0
+  const ratio = (value - startValue) / (targetValue - startValue)
   return Math.min(100, Math.max(0, ratio * 100))
+}
+
+export function metricProgress(metric: GoalMetric) {
+  return metricProgressAt(metric, metric.currentValue)
 }
 
 export function goalProgress(goal: Goal) {

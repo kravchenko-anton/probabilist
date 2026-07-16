@@ -3,7 +3,8 @@ import { Navigate, Route, Routes } from "react-router-dom"
 import { Calendar1, CalendarRange, Inbox, Sunrise } from "lucide-react"
 import { Layout } from "@/components/Layout"
 import { DateView } from "@/pages/DateView"
-import { ProjectView } from "@/pages/ProjectView"
+import { GoalView } from "@/pages/GoalView"
+import { GoalsPage } from "@/pages/GoalsPage"
 
 function App() {
   return (
@@ -20,7 +21,8 @@ function App() {
           path="next-7-days"
           element={<DateView view="next7" title="Next 7 Days" icon={CalendarRange} />}
         />
-        <Route path="project/:slug" element={<ProjectView />} />
+        <Route path="goals" element={<GoalsPage />} />
+        <Route path="goal/:slug" element={<GoalView />} />
         <Route path="*" element={<Navigate to="/inbox" replace />} />
       </Route>
     </Routes>
