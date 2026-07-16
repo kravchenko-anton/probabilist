@@ -7,12 +7,8 @@ import {
   Check,
   ChevronRight,
   Inbox,
-  Info,
-  MessageCircle,
-  MoreHorizontal,
+  LogOut,
   Plus,
-  Settings,
-  Sparkles,
   Sunrise,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -27,11 +23,50 @@ import { AttemptFormDialog } from "@/components/goals/AttemptFormDialog"
 import { countForView } from "@/lib/task-groups"
 import { cn } from "@/lib/utils"
 
-const footerLinks = [
-  { label: "Settings", icon: Settings },
-  { label: "About", icon: Info },
-  { label: "Feedback", icon: MessageCircle },
-]
+/** Avatar chip next to the logo; hovering it reveals the profile card with logout. */
+function UserBadge() {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <Avatar
+        size="sm"
+        className="size-6 cursor-pointer ring-1 ring-transparent transition-shadow hover:ring-foreground/30"
+      >
+        <AvatarImage src="" alt="Anton Kravchenko" />
+        <AvatarFallback className="text-[10px]">AK</AvatarFallback>
+      </Avatar>
+
+      {open && (
+        <div className="absolute right-0 top-full z-50 w-56 pt-1.5">
+          <div className="flex flex-col gap-2 rounded-lg bg-popover p-3 shadow-md ring-1 ring-foreground/10">
+            <div className="flex items-center gap-2.5">
+              <Avatar size="sm">
+                <AvatarImage src="" alt="Anton Kravchenko" />
+                <AvatarFallback>AK</AvatarFallback>
+              </Avatar>
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-[13px] font-medium text-foreground">
+                  Anton Kravchenko
+                </span>
+                <span className="truncate text-xs text-muted-foreground">ant...@gmail.com</span>
+              </div>
+            </div>
+            <Separator />
+            <button className="flex h-7 items-center gap-2 rounded-md px-2 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground">
+              <LogOut size={14} />
+              Log out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 /** Notion-style expander: shows the item's emoji, flips to a chevron on row hover. */
 function ExpandToggle({
@@ -96,10 +131,14 @@ export function Sidebar() {
 
   return (
     <div className="hidden h-full w-[240px] shrink-0 flex-col overflow-y-auto bg-sidebar px-2 py-2 text-[13px] md:flex">
-      <div className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/5">
-        <BrainCog size={18} />
-        <h1 className="flex-1 truncate font-medium">Probabilist</h1>
-      </div>
+     <Link to="/">
+       <div
+         className="flex cursor-pointer items-center gap-2 px-2 py-1.5">
+         <BrainCog size={18} />
+         <h1 className="flex-1 truncate font-medium">Probabilist</h1>
+         <UserBadge />
+       </div>
+     </Link>
 
       <div className="mt-3 flex flex-col gap-px">
         {topItems.map(({ label, to, icon: Icon, count }) => (
@@ -236,48 +275,6 @@ export function Sidebar() {
         />
       )}
 
-      <div className="mt-auto flex flex-col gap-3 pt-4">
-        <div className="flex flex-col gap-px">
-          {footerLinks.map(({ label, icon: Icon }) => (
-            <button
-              key={label}
-              className="flex h-7 items-center gap-2 rounded-md px-2 font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground"
-            >
-              <Icon size={15} />
-              <span className="flex-1 truncate text-left">{label}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-col gap-2 rounded-xl border border-border bg-card px-3 py-3">
-          <span className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Sparkles size={13} />
-          </span>
-          <div className="flex flex-col gap-0.5">
-            <p className="font-medium text-foreground">Support me</p>
-            <p className="text-muted-foreground">You can make it by buying me coffee</p>
-          </div>
-          <Button size="sm" className="mt-1 w-full bg-white text-black hover:bg-white/90">
-            Buy me a coffee
-          </Button>
-        </div>
-
-        <Separator />
-
-        <div className="flex items-center gap-2 px-1">
-          <Avatar size="sm">
-            <AvatarImage src="" alt="Anton Kravchenko" />
-            <AvatarFallback>A</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <span className="truncate font-medium text-foreground">Anton Kravchenko</span>
-            <span className="truncate text-muted-foreground">ant...@gmail.com</span>
-          </div>
-          <button className="text-muted-foreground hover:text-foreground">
-            <MoreHorizontal size={15} />
-          </button>
-        </div>
-      </div>
     </div>
   )
 }
