@@ -9,6 +9,10 @@ export interface AttemptTask {
   date?: Date
   /** Serialized Lexical document; plain text from legacy notes is also accepted. */
   description?: string
+  /** Day the task was checked off; keeps it in day views until that day passes. */
+  completedAt?: Date
+  /** Soft delete — the task lives in Trash until restored or destroyed. */
+  deletedAt?: Date
 }
 
 export interface MetricPrediction {
@@ -30,7 +34,6 @@ export interface Attempt {
   goalId: string
   title: string
   icon?: string
-  description?: string
   tasks: AttemptTask[]
   status: AttemptStatus
   createdAt: Date
@@ -42,12 +45,18 @@ export interface Attempt {
   retrospective?: string
 }
 
+/** Tasks that are not soft-deleted — the only ones counted and rendered. */
+export function activeTasks(attempt: Attempt) {
+  return attempt.tasks.filter((task) => !task.deletedAt)
+}
+
 export function tasksDoneCount(attempt: Attempt) {
-  return attempt.tasks.filter((task) => task.done).length
+  return activeTasks(attempt).filter((task) => task.done).length
 }
 
 export function allTasksDone(attempt: Attempt) {
-  return attempt.tasks.length > 0 && attempt.tasks.every((task) => task.done)
+  const tasks = activeTasks(attempt)
+  return tasks.length > 0 && tasks.every((task) => task.done)
 }
 
 /**

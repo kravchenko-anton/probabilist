@@ -12,11 +12,9 @@ export interface Goal {
   slug: string
   title: string
   emoji: string
-  description?: string
   timePeriodLabel: string
   startDate: Date
   endDate: Date
-  privacy: "Public" | "Private"
   metrics: GoalMetric[]
 }
 

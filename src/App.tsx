@@ -1,10 +1,11 @@
 import './App.css'
 import { Navigate, Route, Routes } from "react-router-dom"
-import { Calendar1, CalendarRange, Inbox, Sunrise } from "lucide-react"
 import { Layout } from "@/components/Layout"
 import { DateView } from "@/pages/DateView"
 import { GoalView } from "@/pages/GoalView"
 import { GoalsPage } from "@/pages/GoalsPage"
+import { CompletedPage } from "@/pages/CompletedPage"
+import { TrashPage } from "@/pages/TrashPage"
 
 function App() {
   
@@ -12,16 +13,15 @@ function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Navigate to="/inbox" replace />} />
-        <Route path="inbox" element={<DateView view="inbox" title="Inbox" icon={Inbox} />} />
-        <Route path="today" element={<DateView view="today" title="Today" icon={Calendar1} />} />
-        <Route
-          path="tomorrow"
-          element={<DateView view="tomorrow" title="Tomorrow" icon={Sunrise} />}
-        />
+        <Route path="inbox" element={<DateView view="inbox" title="Inbox" emoji="📥" />} />
+        <Route path="today" element={<DateView view="today" title="Today" />} />
+        <Route path="tomorrow" element={<DateView view="tomorrow" title="Tomorrow" />} />
         <Route
           path="next-7-days"
-          element={<DateView view="next7" title="Next 7 Days" icon={CalendarRange} />}
+          element={<DateView view="next7" title="Next 7 Days" emoji="🗓️" />}
         />
+        <Route path="completed" element={<CompletedPage />} />
+        <Route path="trash" element={<TrashPage />} />
         <Route path="goals" element={<GoalsPage />} />
         <Route path="goal/:slug" element={<GoalView />} />
         <Route path="*" element={<Navigate to="/inbox" replace />} />

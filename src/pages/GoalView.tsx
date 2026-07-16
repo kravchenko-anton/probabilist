@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react"
 import { useParams, useSearchParams } from "react-router-dom"
-import { Check, FileText, Globe, Lock, Pencil, Plus } from "lucide-react"
+import { Check, FileText, Pencil, Plus } from "lucide-react"
 import { useGoals } from "@/lib/goals-store"
 import { formatShortDate } from "@/lib/date"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Emoji } from "@/components/ui/emoji"
 import { goalProgress, isGoalDone } from "@/data/goals"
-import type { Attempt } from "@/data/attempts"
+import { activeTasks, type Attempt } from "@/data/attempts"
 import { useIsMobile, useMediaQuery } from "@/hooks/use-mobile"
 import { GoalProgressChart } from "@/components/goals/GoalProgressChart"
 import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
@@ -125,8 +126,8 @@ export function GoalView() {
       <div className="flex w-full flex-col border-border lg:w-[60%] lg:border-r">
         <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex items-center gap-3">
-            <span className="text-2xl leading-none">{goal.emoji}</span>
-            <h1 className="font-heading text-xl font-medium text-foreground">{goal.title}</h1>
+            <Emoji value={goal.emoji} className="size-6" />
+            <h1 className="text-xl font-medium text-foreground">{goal.title}</h1>
             <Button
               variant="ghost"
               size="icon-sm"
@@ -145,10 +146,6 @@ export function GoalView() {
             </span>
           </div>
 
-          {goal.description && (
-            <p className="text-sm text-muted-foreground">{goal.description}</p>
-          )}
-
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             {goalDone && (
               <span className="flex items-center gap-1.5 rounded-md bg-emerald-400/10 px-2 py-1 text-emerald-400">
@@ -156,10 +153,6 @@ export function GoalView() {
                 Goal achieved
               </span>
             )}
-            <span className="flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-1">
-              {goal.privacy === "Public" ? <Globe size={12} /> : <Lock size={12} />}
-              {goal.privacy}
-            </span>
             <span className="rounded-md bg-white/5 px-2 py-1">{goal.timePeriodLabel}</span>
           </div>
         </div>
@@ -208,7 +201,7 @@ export function GoalView() {
                           }}
                         />
                         {isExpanded &&
-                          attempt.tasks.map((task) => {
+                          activeTasks(attempt).map((task) => {
                             const taskActive = isSelected && taskParam === task.id
                             return (
                               <div

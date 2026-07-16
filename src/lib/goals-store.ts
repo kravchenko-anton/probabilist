@@ -43,6 +43,8 @@ function reviveTask(task: StoredAttemptTask): AttemptTask {
     done: task.done,
     date: task.date ? new Date(task.date) : undefined,
     description: task.description ?? task.note,
+    completedAt: task.completedAt ? new Date(task.completedAt) : undefined,
+    deletedAt: task.deletedAt ? new Date(task.deletedAt) : undefined,
   }
 }
 
@@ -80,6 +82,7 @@ interface GoalsState {
   deleteAttempt: (attemptId: string) => void
   toggleAttemptTask: (attemptId: string, taskId: string) => void
   updateAttemptTask: (attemptId: string, taskId: string, patch: Partial<AttemptTask>) => void
+  removeAttemptTask: (attemptId: string, taskId: string) => void
   startAttempt: (attemptId: string, predictions: MetricPrediction[]) => void
   completeAttempt: (attemptId: string, results: AttemptResult[], retrospective?: string) => void
 }
@@ -117,7 +120,9 @@ export const useGoalsStore = create<GoalsState>()((set, get) => {
             : {
                 ...attempt,
                 tasks: attempt.tasks.map((task) =>
-                  task.id === taskId ? { ...task, done: !task.done } : task
+                  task.id === taskId
+                    ? { ...task, done: !task.done, completedAt: task.done ? undefined : new Date() }
+                    : task
                 ),
               }
         )
@@ -133,6 +138,14 @@ export const useGoalsStore = create<GoalsState>()((set, get) => {
                   task.id === taskId ? { ...task, ...patch } : task
                 ),
               }
+        )
+      ),
+    removeAttemptTask: (attemptId, taskId) =>
+      commitAttempts((prev) =>
+        prev.map((attempt) =>
+          attempt.id !== attemptId
+            ? attempt
+            : { ...attempt, tasks: attempt.tasks.filter((task) => task.id !== taskId) }
         )
       ),
     startAttempt: (attemptId, predictions) =>

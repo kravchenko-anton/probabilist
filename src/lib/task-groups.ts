@@ -17,7 +17,35 @@ function byOffset(tasks: AppTask[], predicate: (offset: number) => boolean) {
     .sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0))
 }
 
-export function groupsForView(tasks: AppTask[], view: DateViewKind): TaskGroup[] {
+/**
+ * Tasks shown in day views: not trashed, and done tasks stay only until the
+ * day they were completed passes — afterwards they live in Completed.
+ */
+function isListed(task: AppTask) {
+  if (task.deletedAt) return false
+  if (!task.done) return true
+  const completedDay = task.completedAt ?? task.date
+  return completedDay ? dayOffsetFromToday(completedDay) >= 0 : false
+}
+
+export function completedTasks(tasks: AppTask[]) {
+  return tasks
+    .filter((task) => task.done && !task.deletedAt)
+    .sort(
+      (a, b) =>
+        (b.completedAt?.getTime() ?? b.date?.getTime() ?? 0) -
+        (a.completedAt?.getTime() ?? a.date?.getTime() ?? 0)
+    )
+}
+
+export function trashedTasks(tasks: AppTask[]) {
+  return tasks
+    .filter((task) => task.deletedAt)
+    .sort((a, b) => (b.deletedAt?.getTime() ?? 0) - (a.deletedAt?.getTime() ?? 0))
+}
+
+export function groupsForView(allTasks: AppTask[], view: DateViewKind): TaskGroup[] {
+  const tasks = allTasks.filter(isListed)
   const overdue = byOffset(tasks, (offset) => offset < 0).filter((task) => !task.done)
   const today = byOffset(tasks, (offset) => offset === 0)
   const tomorrow = byOffset(tasks, (offset) => offset === 1)

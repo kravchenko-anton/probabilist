@@ -14,6 +14,8 @@ function loadTasks(): TodoTask[] {
     return parsed.map((task) => ({
       ...task,
       date: task.date ? new Date(task.date) : undefined,
+      completedAt: task.completedAt ? new Date(task.completedAt) : undefined,
+      deletedAt: task.deletedAt ? new Date(task.deletedAt) : undefined,
     }))
   } catch {
     return initialTasks
@@ -62,22 +64,24 @@ export interface AppTask {
   done: boolean
   date?: Date
   description?: string
+  completedAt?: Date
+  deletedAt?: Date
   origin: AppTaskOrigin
 }
 
-export type AppTaskPatch = Partial<Pick<AppTask, "title" | "done" | "date" | "description">>
+export type AppTaskPatch = Partial<
+  Pick<AppTask, "title" | "done" | "date" | "description" | "completedAt" | "deletedAt">
+>
 
-/**
- * Date views work over one merged list: standalone inbox tasks plus attempt
- * tasks that were planned onto a date. Edits are routed back to whichever
- * store the task came from.
- */
+
 export function useAppTasks() {
   const tasks = useTasksStore((state) => state.tasks)
   const addTask = useTasksStore((state) => state.addTask)
   const updateTask = useTasksStore((state) => state.updateTask)
+  const deleteTask = useTasksStore((state) => state.deleteTask)
   const attempts = useGoalsStore((state) => state.attempts)
   const updateAttemptTask = useGoalsStore((state) => state.updateAttemptTask)
+  const removeAttemptTask = useGoalsStore((state) => state.removeAttemptTask)
 
   const appTasks = useMemo<AppTask[]>(() => {
     const standalone: AppTask[] = tasks.map((task) => ({ ...task, origin: { kind: "inbox" } }))
@@ -85,13 +89,15 @@ export function useAppTasks() {
       attempt.status === "completed"
         ? []
         : attempt.tasks
-            .filter((task) => task.date)
+            .filter((task) => task.date || task.deletedAt)
             .map((task) => ({
               id: task.id,
               title: task.title,
               done: task.done,
               date: task.date,
               description: task.description,
+              completedAt: task.completedAt,
+              deletedAt: task.deletedAt,
               origin: {
                 kind: "attempt" as const,
                 attemptId: attempt.id,
@@ -104,9 +110,24 @@ export function useAppTasks() {
   }, [tasks, attempts])
 
   const updateAppTask = (task: AppTask, patch: AppTaskPatch) => {
-    if (task.origin.kind === "attempt") updateAttemptTask(task.origin.attemptId, task.id, patch)
-    else updateTask(task.id, patch)
+    const full: AppTaskPatch =
+      patch.done === undefined
+        ? patch
+        : { ...patch, completedAt: patch.done ? new Date() : undefined }
+    if (task.origin.kind === "attempt") updateAttemptTask(task.origin.attemptId, task.id, full)
+    else updateTask(task.id, full)
   }
 
-  return { tasks: appTasks, addTask, updateAppTask }
+  /** Soft delete — the task moves to Trash. */
+  const deleteAppTask = (task: AppTask) => updateAppTask(task, { deletedAt: new Date() })
+
+  const restoreAppTask = (task: AppTask) => updateAppTask(task, { deletedAt: undefined })
+
+  /** Permanent delete — removes the task from its store entirely. */
+  const destroyAppTask = (task: AppTask) => {
+    if (task.origin.kind === "attempt") removeAttemptTask(task.origin.attemptId, task.id)
+    else deleteTask(task.id)
+  }
+
+  return { tasks: appTasks, addTask, updateAppTask, deleteAppTask, restoreAppTask, destroyAppTask }
 }

@@ -17,7 +17,7 @@ export function AddTaskBar({ onAdd, placeholder = "Add task" }: AddTaskBarProps)
   }
 
   return (
-    <div className="mx-3 mb-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground focus-within:bg-white/5 hover:bg-white/5">
+    <div className="mx-3 mb-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground bg-white/5 ">
       <Plus size={15} className="shrink-0" />
       <input
         value={value}

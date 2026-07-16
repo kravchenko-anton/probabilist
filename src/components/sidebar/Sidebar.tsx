@@ -1,21 +1,10 @@
 import { useState } from "react"
 import { Link, NavLink, useLocation } from "react-router-dom"
-import {
-  BrainCog,
-  Calendar1,
-  CalendarRange,
-  Check,
-  ChevronRight,
-  Inbox,
-  LogOut,
-  Plus,
-  Sunrise,
-} from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { BrainCog, Check, ChevronRight, Plus, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
+import { Emoji } from "@/components/ui/emoji"
 import { goalProgress, isGoalDone } from "@/data/goals"
-import { tasksDoneCount } from "@/data/attempts"
+import { activeTasks, tasksDoneCount } from "@/data/attempts"
 import { useGoals } from "@/lib/goals-store"
 import { useAppTasks } from "@/lib/tasks-store"
 import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
@@ -24,49 +13,6 @@ import { countForView } from "@/lib/task-groups"
 import { cn } from "@/lib/utils"
 
 /** Avatar chip next to the logo; hovering it reveals the profile card with logout. */
-function UserBadge() {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <div
-      className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <Avatar
-        size="sm"
-        className="size-6 cursor-pointer ring-1 ring-transparent transition-shadow hover:ring-foreground/30"
-      >
-        <AvatarImage src="" alt="Anton Kravchenko" />
-        <AvatarFallback className="text-[10px]">AK</AvatarFallback>
-      </Avatar>
-
-      {open && (
-        <div className="absolute right-0 top-full z-50 w-56 pt-1.5">
-          <div className="flex flex-col gap-2 rounded-lg bg-popover p-3 shadow-md ring-1 ring-foreground/10">
-            <div className="flex items-center gap-2.5">
-              <Avatar size="sm">
-                <AvatarImage src="" alt="Anton Kravchenko" />
-                <AvatarFallback>AK</AvatarFallback>
-              </Avatar>
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-[13px] font-medium text-foreground">
-                  Anton Kravchenko
-                </span>
-                <span className="truncate text-xs text-muted-foreground">ant...@gmail.com</span>
-              </div>
-            </div>
-            <Separator />
-            <button className="flex h-7 items-center gap-2 rounded-md px-2 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground">
-              <LogOut size={14} />
-              Log out
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 /** Notion-style expander: shows the item's emoji, flips to a chevron on row hover. */
 function ExpandToggle({
@@ -89,9 +35,10 @@ function ExpandToggle({
       }}
       className="relative flex size-5 shrink-0 items-center justify-center rounded-md hover:bg-white/10"
     >
-      <span className="text-[14px] leading-none transition-opacity group-hover/row:opacity-0">
-        {emoji ?? "📝"}
-      </span>
+      <Emoji
+        value={emoji ?? "📝"}
+        className="size-3.5 transition-opacity group-hover/row:opacity-0"
+      />
       <ChevronRight
         size={14}
         className={cn(
@@ -118,59 +65,87 @@ export function Sidebar() {
     setExpanded((prev) => ({ ...prev, [key]: !(prev[key] ?? fallback) }))
 
   const topItems = [
-    { label: "Today", to: "/today", icon: Calendar1, count: countForView(tasks, "today") },
-    { label: "Tomorrow", to: "/tomorrow", icon: Sunrise, count: countForView(tasks, "tomorrow") },
+    { label: "Today", to: "/today", emoji: "📅", count: countForView(tasks, "today") },
+    { label: "Tomorrow", to: "/tomorrow", emoji: "🌅", count: countForView(tasks, "tomorrow") },
     {
       label: "Next 7 Days",
       to: "/next-7-days",
-      icon: CalendarRange,
+      emoji: "🗓️",
       count: countForView(tasks, "next7"),
     },
-    { label: "Inbox", to: "/inbox", icon: Inbox, count: countForView(tasks, "inbox") },
+    { label: "Inbox", to: "/inbox", emoji: "📥", count: countForView(tasks, "inbox") },
   ]
 
   return (
-    <div className="hidden h-full w-[240px] shrink-0 flex-col overflow-y-auto bg-sidebar px-2 py-2 text-[13px] md:flex">
+    <div className="hidden h-full w-[240px] shrink-0 flex-col bg-sidebar text-[13px] md:flex">
+     <div className="flex flex-1 flex-col overflow-y-auto px-2 py-2">
      <Link to="/">
        <div
          className="flex cursor-pointer items-center gap-2 px-2 py-1.5">
          <BrainCog size={18} />
-         <h1 className="flex-1 truncate font-medium">Probabilist</h1>
-         <UserBadge />
+         <h1 className="flex-1 truncate font-logo font-medium">Probabilist</h1>
        </div>
      </Link>
 
       <div className="mt-3 flex flex-col gap-px">
-        {topItems.map(({ label, to, icon: Icon, count }) => (
+        {topItems.map(({ label, to, emoji, count }) => (
           <NavLink
             key={label}
             to={to}
             className={({ isActive }) =>
               cn(
-                "flex h-7 items-center gap-2 rounded-md px-2 font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground",
+                "flex h-6 items-center gap-2 rounded-md px-2 font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground",
                 isActive && "bg-white/10 text-foreground"
               )
             }
           >
-            <Icon size={15} className="shrink-0" />
+            <Emoji value={emoji} className="size-[15px]" />
             <span className="flex-1 truncate text-left">{label}</span>
             {count > 0 && <span className="text-xs text-muted-foreground/70">{count}</span>}
           </NavLink>
         ))}
       </div>
 
-      <div className="group/section mt-5 flex h-6 items-center justify-between rounded-md px-2">
-        <p className="text-[11px] font-medium tracking-wide text-muted-foreground/80">Goals</p>
-        <button
-          onClick={() => setCreateGoalOpen(true)}
-          aria-label="New goal"
-          className="flex size-5 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-white/10 hover:text-foreground group-hover/section:opacity-100"
+      <div className="mt-2 flex flex-col gap-px pt-2">
+        <NavLink
+          to="/logbook"
+          className={({ isActive }) =>
+            cn(
+              "flex h-6 items-center gap-2 rounded-md px-2 font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground",
+              isActive && "bg-white/10 text-foreground"
+            )
+          }
         >
-          <Plus size={14} />
-        </button>
+          <Emoji value="📕" className="size-[15px]" />
+          <span className="flex-1 truncate text-left">Logbook</span>
+        </NavLink>
+        <NavLink
+          to="/completed"
+          className={({ isActive }) =>
+            cn(
+              "flex h-6 mt-4 items-center gap-2 rounded-md px-2 font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground",
+              isActive && "bg-white/10 text-foreground"
+            )
+          }
+        >
+          <Emoji value="✅" className="size-[15px]" />
+          <span className="flex-1 truncate text-left">Completed</span>
+        </NavLink>
+        <NavLink
+          to="/trash"
+          className={({ isActive }) =>
+            cn(
+              "flex h-6 items-center gap-2 rounded-md px-2 font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground",
+              isActive && "bg-white/10 text-foreground"
+            )
+          }
+        >
+          <Emoji value="🗑️" className="size-[15px]" />
+          <span className="flex-1 truncate text-left">Trash</span>
+        </NavLink>
       </div>
 
-      <div className="mt-0.5 flex flex-col gap-px">
+      <div className="mt-10 flex flex-col gap-px">
         {goals.length > 0 ? (
           goals.map((goal) => {
             const goalPath = `/goal/${goal.slug}`
@@ -185,7 +160,7 @@ export function Sidebar() {
               <div key={goal.id} className="flex flex-col gap-px">
                 <div
                   className={cn(
-                    "group/row flex h-7 items-center gap-1.5 rounded-md px-1.5 font-medium text-muted-foreground hover:bg-white/5",
+                    "group/row flex h-6 items-center gap-1.5 rounded-md px-1.5 font-medium text-muted-foreground hover:bg-white/5",
                     goalActive && "bg-white/10 text-foreground"
                   )}
                 >
@@ -226,8 +201,8 @@ export function Sidebar() {
                             attemptActive && "bg-white/10 text-foreground"
                           )}
                         >
-                          <span className="flex size-5 shrink-0 items-center justify-center text-[13px] leading-none">
-                            {attempt.icon ?? "📝"}
+                          <span className="flex size-5 shrink-0 items-center justify-center">
+                            <Emoji value={attempt.icon ?? "📝"} className="size-[13px]" />
                           </span>
                           <span className="min-w-0 flex-1 truncate">{attempt.title}</span>
                           <span
@@ -236,7 +211,7 @@ export function Sidebar() {
                               attempt.status === "active" && "text-primary-foreground/70"
                             )}
                           >
-                            {tasksDoneCount(attempt)}/{attempt.tasks.length}
+                            {tasksDoneCount(attempt)}/{activeTasks(attempt).length}
                           </span>
                         </Link>
                       )
@@ -261,6 +236,17 @@ export function Sidebar() {
             </div>
           </div>
         )}
+      </div>
+     </div>
+
+      <div className="flex shrink-0 items-center gap-2 border-t justify-between border-white/5 px-3 py-2">
+     <div
+        onClick={() => setCreateGoalOpen(true)}
+       className='flex items-center justify-center gap-2 cursor-pointer hover:bg-white/5 rounded-md px-2 py-1.5'>
+       <Plus size={18} className="shrink-0 text-muted-foreground" />
+       <p className="text-[14px] text-muted-foreground">New Goal</p>
+     </div>
+        <Settings size={15} className="shrink-0 text-muted-foreground" />
       </div>
 
       <GoalFormDialog open={createGoalOpen} onOpenChange={setCreateGoalOpen} />

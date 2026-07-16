@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react"
-import type { LucideIcon } from "lucide-react"
 import { useAppTasks, type AppTask } from "@/lib/tasks-store"
 import { groupsForView, type DateViewKind, type TaskGroupKind } from "@/lib/task-groups"
 import {
@@ -10,7 +9,7 @@ import {
   hasTimeOfDay,
   startOfDay,
 } from "@/lib/date"
-import { useIsMobile, useMediaQuery } from "@/hooks/use-mobile"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { TaskListHeader } from "@/components/tasks/TaskListHeader"
 import { AddTaskBar } from "@/components/tasks/AddTaskBar"
 import { TaskSection } from "@/components/tasks/TaskSection"
@@ -22,7 +21,7 @@ import { cn } from "@/lib/utils"
 interface DateViewProps {
   view: DateViewKind
   title: string
-  icon?: LucideIcon
+  emoji?: string
 }
 
 function rightLabelFor(task: AppTask, groupKind: TaskGroupKind) {
@@ -39,18 +38,24 @@ function defaultDateForView(view: DateViewKind): Date | undefined {
   return undefined
 }
 
-export function DateView({ view, title, icon }: DateViewProps) {
-  const { tasks, addTask, updateAppTask } = useAppTasks()
+export function DateView({ view, title, emoji }: DateViewProps) {
+  const { tasks, addTask, updateAppTask, deleteAppTask } = useAppTasks()
   const groups = useMemo(() => groupsForView(tasks, view), [tasks, view])
   const allTasks = useMemo(() => groups.flatMap((group) => group.tasks), [groups])
-  const [selectedId, setSelectedId] = useState(allTasks[0]?.id)
+  const [selectedId, setSelectedId] = useState<string>()
   const [detailOpen, setDetailOpen] = useState(false)
 
-  const isDesktop = useMediaQuery("(min-width: 1024px)")
   const isMobile = useIsMobile()
 
-  const selectedTask =
-    allTasks.find((task) => task.id === selectedId) ?? allTasks[0]
+  const selectedTask = allTasks.find((task) => task.id === selectedId)
+
+  const doneCount = allTasks.filter((task) => task.done).length
+  const progress =
+    view === "today" || view === "tomorrow"
+      ? allTasks.length > 0
+        ? doneCount / allTasks.length
+        : 0
+      : undefined
 
   const detailPane = selectedTask ? (
     <TaskDetailPane
@@ -62,13 +67,17 @@ export function DateView({ view, title, icon }: DateViewProps) {
       onRename={(name) => updateAppTask(selectedTask, { title: name })}
       onSchedule={(date) => updateAppTask(selectedTask, { date })}
       onDescriptionChange={(description) => updateAppTask(selectedTask, { description })}
+      onDelete={() => {
+        deleteAppTask(selectedTask)
+        setDetailOpen(false)
+      }}
     />
   ) : null
 
   return (
-    <div className="flex h-full flex-1">
-      <div className="flex w-full flex-col border-border lg:w-[60%] lg:border-r">
-        <TaskListHeader title={title} icon={icon} />
+    <div className="flex h-full flex-1 flex-col">
+      <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
+        <TaskListHeader title={title} emoji={emoji} progress={progress} />
         <AddTaskBar
           onAdd={(taskTitle) =>
             addTask({
@@ -80,48 +89,52 @@ export function DateView({ view, title, icon }: DateViewProps) {
           }
         />
         <div className="flex flex-1 flex-col overflow-y-auto pb-4">
-          {groups.map((group) => (
-            <TaskSection key={group.kind} title={group.title} count={group.tasks.length}>
-              {group.tasks.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  title={task.title}
-                  emoji={task.origin.kind === "attempt" ? task.origin.emoji : task.emoji}
-                  done={task.done}
-                  hasNote={!!task.description}
-                  selected={task.id === selectedTask?.id}
-                  onSelect={() => {
-                    setSelectedId(task.id)
-                    if (!isDesktop) setDetailOpen(true)
-                  }}
-                  onToggleDone={(done) => updateAppTask(task, { done })}
-                  rightLabel={rightLabelFor(task, group.kind)}
-                  rightLabelClassName={
-                    group.kind === "next7"
-                      ? "text-primary"
-                      : group.kind === "overdue"
-                        ? "text-red-400"
-                        : undefined
-                  }
-                />
-              ))}
-            </TaskSection>
-          ))}
+          {groups.map((group) => {
+            const rows = group.tasks.map((task) => (
+              <TaskRow
+                key={task.id}
+                title={task.title}
+                emoji={task.origin.kind === "attempt" ? task.origin.emoji : task.emoji}
+                done={task.done}
+                hasNote={!!task.description}
+                selected={task.id === selectedId && detailOpen}
+                onSelect={() => {
+                  setSelectedId(task.id)
+                  setDetailOpen(true)
+                }}
+                onToggleDone={(done) => updateAppTask(task, { done })}
+                rightLabel={rightLabelFor(task, group.kind)}
+                rightLabelClassName={
+                  group.kind === "next7"
+                    ? "text-primary"
+                    : group.kind === "overdue"
+                      ? "text-red-400"
+                      : undefined
+                }
+              />
+            ))
+
+            // Skip the section header when it would just repeat the page title.
+            if (group.title === title)
+              return (
+                <div key={group.kind} className="flex flex-col pt-1.5">
+                  {rows}
+                </div>
+              )
+
+            return (
+              <TaskSection key={group.kind} title={group.title} count={group.tasks.length}>
+                {rows}
+              </TaskSection>
+            )
+          })}
           {allTasks.length === 0 && (
             <p className="px-4 py-6 text-center text-muted-foreground">No tasks here.</p>
           )}
         </div>
       </div>
 
-      <div className="hidden flex-1 lg:block">
-        {detailPane ?? (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            Select a task
-          </div>
-        )}
-      </div>
-
-      <Sheet open={detailOpen && !isDesktop} onOpenChange={setDetailOpen}>
+      <Sheet open={detailOpen && !!selectedTask} onOpenChange={setDetailOpen}>
         <SheetContent
           side={isMobile ? "bottom" : "right"}
           showCloseButton={false}

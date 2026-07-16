@@ -5,6 +5,7 @@ import { useGoals } from "@/lib/goals-store"
 import { goalProgress, isGoalDone } from "@/data/goals"
 import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
 import { Button } from "@/components/ui/button"
+import { Emoji } from "@/components/ui/emoji"
 import { cn } from "@/lib/utils"
 
 export function GoalsPage() {
@@ -15,7 +16,7 @@ export function GoalsPage() {
     <div className="flex h-full flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-border px-4 py-4 sm:px-6">
         <Target size={16} className="text-muted-foreground" />
-        <h1 className="font-heading text-[15px] font-medium text-foreground">Goals</h1>
+        <h1 className="text-[15px] font-medium text-foreground">Goals</h1>
         <Button size="sm" className="ml-auto" onClick={() => setCreateOpen(true)}>
           <Plus size={13} />
           New goal
@@ -39,7 +40,7 @@ export function GoalsPage() {
                   className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-white/5"
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="text-xl leading-none">{goal.emoji}</span>
+                    <Emoji value={goal.emoji} className="size-5" />
                     <span className="flex-1 truncate text-sm font-medium text-foreground">
                       {goal.title}
                     </span>

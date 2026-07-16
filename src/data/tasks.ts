@@ -9,6 +9,10 @@ export interface TodoTask {
   date?: Date
   /** Serialized Lexical document; plain text is also accepted. */
   description?: string
+  /** Day the task was checked off; keeps it in day views until that day passes. */
+  completedAt?: Date
+  /** Soft delete — the task lives in Trash until restored or destroyed. */
+  deletedAt?: Date
 }
 
 function at(dayOffset: number, hours: number, minutes: number) {

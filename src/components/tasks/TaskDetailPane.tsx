@@ -1,6 +1,7 @@
 import { useState } from "react"
-import { ArrowLeft, Flag, MessageSquare, MoreHorizontal } from "lucide-react"
+import { ArrowLeft, Flag, Trash2 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Emoji } from "@/components/ui/emoji"
 import { RichTextEditor } from "@/components/editor/RichTextEditor"
 import { SchedulePopover } from "@/components/tasks/SchedulePopover"
 import { cn } from "@/lib/utils"
@@ -23,6 +24,8 @@ interface TaskDetailPaneProps {
   onRename: (title: string) => void
   onSchedule: (date?: Date) => void
   onDescriptionChange: (description?: string) => void
+  /** Moves the task to Trash. */
+  onDelete?: () => void
 }
 
 /**
@@ -31,13 +34,12 @@ interface TaskDetailPaneProps {
  */
 export function TaskDetailPane({
   task,
-  footerEmoji,
-  footerLabel,
   onBack,
   onToggleDone,
   onRename,
   onSchedule,
   onDescriptionChange,
+  onDelete,
 }: TaskDetailPaneProps) {
   const [titleDraft, setTitleDraft] = useState(task.title)
 
@@ -70,10 +72,20 @@ export function TaskDetailPane({
         <SchedulePopover date={task.date} done={task.done} onSchedule={onSchedule} placeholder="Pick a date" />
         <div className="flex-1" />
         <Flag size={15} className="text-muted-foreground" />
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            aria-label="Delete task"
+            className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-white/5 hover:text-red-400"
+          >
+            <Trash2 size={15} />
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-2 px-5 py-2">
-        {task.emoji && <span className="text-lg leading-none">{task.emoji}</span>}
+        {task.emoji && <Emoji value={task.emoji} className="size-[18px]" />}
         <input
           value={titleDraft}
           onChange={(e) => setTitleDraft(e.target.value)}
@@ -87,7 +99,7 @@ export function TaskDetailPane({
           }}
           placeholder="Task title"
           className={cn(
-            "w-full flex-1 bg-transparent font-heading text-lg font-medium text-foreground outline-none placeholder:text-muted-foreground",
+            "w-full flex-1 bg-transparent text-lg font-medium text-foreground outline-none placeholder:text-muted-foreground",
             task.done && "text-muted-foreground line-through"
           )}
         />
@@ -100,13 +112,6 @@ export function TaskDetailPane({
         placeholder="Add a description — plans, details, links…"
         className="pt-1"
       />
-
-      <div className="flex items-center gap-2 border-t border-border px-5 py-3 text-muted-foreground">
-        {footerEmoji && <span className="text-[13px] leading-none">{footerEmoji}</span>}
-        <span className="flex-1 truncate text-xs">{footerLabel}</span>
-        <MessageSquare size={15} />
-        <MoreHorizontal size={15} />
-      </div>
     </div>
   )
 }

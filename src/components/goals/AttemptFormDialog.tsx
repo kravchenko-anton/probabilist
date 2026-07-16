@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { CalendarIcon, Plus, StickyNote, X } from "lucide-react"
+import { CalendarIcon, Footprints, Plus, StickyNote, X } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
+import { Emoji } from "@/components/ui/emoji"
 import { useGoals } from "@/lib/goals-store"
 import type { Attempt, AttemptTask } from "@/data/attempts"
 import { formatShortDate } from "@/lib/date"
@@ -39,21 +40,21 @@ export function AttemptFormDialog({
 
   const [title, setTitle] = useState("")
   const [icon, setIcon] = useState(ATTEMPT_ICONS[0])
-  const [description, setDescription] = useState("")
   const [deadline, setDeadline] = useState<Date>()
   const [deadlinePickerOpen, setDeadlinePickerOpen] = useState(false)
   const [tasks, setTasks] = useState<AttemptTask[]>([])
   const [taskInput, setTaskInput] = useState("")
+  const [firstStep, setFirstStep] = useState("")
   const [noteOpenId, setNoteOpenId] = useState<string>()
 
   useEffect(() => {
     if (!open) return
     setTitle(attempt?.title ?? "")
     setIcon(attempt?.icon ?? ATTEMPT_ICONS[0])
-    setDescription(attempt?.description ?? "")
     setDeadline(attempt?.deadline)
     setTasks(attempt?.tasks ?? [])
     setTaskInput("")
+    setFirstStep("")
     setNoteOpenId(undefined)
   }, [open, attempt])
 
@@ -74,7 +75,8 @@ export function AttemptFormDialog({
     )
   }
 
-  const isValid = !!title.trim() && tasks.length > 0 && !!deadline
+  const isValid =
+    !!title.trim() && !!deadline && (isEditing ? tasks.length > 0 : !!firstStep.trim())
 
   function handleSave() {
     if (!isValid || !deadline) return
@@ -85,7 +87,6 @@ export function AttemptFormDialog({
         ...attempt,
         title: trimmedTitle,
         icon,
-        description: description.trim() || undefined,
         deadline,
         tasks,
       })
@@ -98,9 +99,8 @@ export function AttemptFormDialog({
       goalId,
       title: trimmedTitle,
       icon,
-      description: description.trim() || undefined,
       deadline,
-      tasks,
+      tasks: [{ id: crypto.randomUUID(), title: firstStep.trim(), done: false }],
       status: "planned",
       createdAt: new Date(),
       predictions: [],
@@ -141,11 +141,11 @@ export function AttemptFormDialog({
                     type="button"
                     onClick={() => setIcon(emoji)}
                     className={cn(
-                      "flex size-8 items-center justify-center rounded-md text-[16px] hover:bg-white/5",
+                      "flex size-8 items-center justify-center rounded-md hover:bg-white/5",
                       icon === emoji && "bg-white/10 ring-1 ring-primary"
                     )}
                   >
-                    {emoji}
+                    <Emoji value={emoji} className="size-5" />
                   </button>
                 ))}
               </div>
@@ -184,16 +184,32 @@ export function AttemptFormDialog({
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-foreground">Description</label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What is this attempt about, and why should it move the metrics?"
-              className="min-h-14"
-            />
-          </div>
+          {!isEditing && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-foreground">
+                First step <span className="text-destructive">*</span>
+              </label>
+              <div className="rounded-lg border border-primary/25 bg-primary/[0.06] p-3 transition-colors focus-within:border-primary/50">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                    <Footprints size={14} color={'#fff'} />
+                  </span>
+                  <input
+                    value={firstStep}
+                    onChange={(e) => setFirstStep(e.target.value)}
+                    placeholder="What's the very first thing you'll do?"
+                    className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+                <p className="mt-2.5 text-[11px] leading-relaxed text-muted-foreground">
+                  One small action is enough to start. The next steps will reveal themselves once
+                  you take this one.
+                </p>
+              </div>
+            </div>
+          )}
 
+          {isEditing && (
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-foreground">
               Tasks <span className="text-destructive">*</span>
@@ -259,6 +275,7 @@ export function AttemptFormDialog({
               </p>
             )}
           </div>
+          )}
         </div>
 
         <DialogFooter className="-mx-4 -mb-4 mt-2">

@@ -1,6 +1,8 @@
 import { Check, ChevronRight } from "lucide-react"
+import { Emoji } from "@/components/ui/emoji"
 import { cn } from "@/lib/utils"
 import {
+  activeTasks,
   deadlineMissDays,
   formatMissDays,
   isOverdue,
@@ -51,8 +53,8 @@ function Subtitle({ attempt }: { attempt: Attempt }) {
 
   const tasks =
     attempt.status === "active"
-      ? `${tasksDoneCount(attempt)}/${attempt.tasks.length} tasks`
-      : `${attempt.tasks.length} tasks`
+      ? `${tasksDoneCount(attempt)}/${activeTasks(attempt).length} tasks`
+      : `${activeTasks(attempt).length} tasks`
 
   return (
     <span className="truncate text-xs text-muted-foreground">
@@ -82,7 +84,7 @@ export function AttemptRow({
     >
       <span className="mt-0.5 flex items-center gap-2">
         <StatusIndicator attempt={attempt} />
-        {attempt.icon && <span className="text-[15px] leading-none">{attempt.icon}</span>}
+        {attempt.icon && <Emoji value={attempt.icon} className="size-[15px]" />}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm font-medium text-foreground">{attempt.title}</span>

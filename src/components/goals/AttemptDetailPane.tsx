@@ -2,10 +2,12 @@ import { useState } from "react"
 import { CalendarDays, ChevronRight, FileText, Flag, Pencil, Play, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Emoji } from "@/components/ui/emoji"
 import { Textarea } from "@/components/ui/textarea"
 import { useGoals } from "@/lib/goals-store"
 import type { Goal } from "@/data/goals"
 import {
+  activeTasks,
   allTasksDone,
   classifyOutcome,
   deadlineMissDays,
@@ -78,7 +80,8 @@ export function AttemptDetailPane({
   const miss = attempt.status === "completed" ? deadlineMissDays(attempt) : null
   const overdue = isOverdue(attempt)
 
-  const openTask = attempt.tasks.find((task) => task.id === openTaskId)
+  const tasks = activeTasks(attempt)
+  const openTask = tasks.find((task) => task.id === openTaskId)
   if (openTask) {
     return (
       <TaskDetailPane
@@ -95,6 +98,10 @@ export function AttemptDetailPane({
         onDescriptionChange={(description) =>
           updateAttemptTask(attempt.id, openTask.id, { description })
         }
+        onDelete={() => {
+          updateAttemptTask(attempt.id, openTask.id, { deletedAt: new Date() })
+          onOpenTask(undefined)
+        }}
       />
     )
   }
@@ -169,8 +176,8 @@ export function AttemptDetailPane({
       </div>
 
       <div className="flex flex-col gap-2 px-5 py-2">
-        <h3 className="flex items-center gap-2 font-heading text-lg font-medium text-foreground">
-          {attempt.icon && <span>{attempt.icon}</span>}
+        <h3 className="flex items-center gap-2 text-lg font-medium text-foreground">
+          {attempt.icon && <Emoji value={attempt.icon} className="size-[18px]" />}
           {attempt.title}
         </h3>
       </div>
@@ -179,10 +186,10 @@ export function AttemptDetailPane({
         <div className="flex items-center gap-2 pb-1 text-xs text-muted-foreground">
           <span className="font-medium text-foreground">Tasks</span>
           <span>
-            {doneCount}/{attempt.tasks.length}
+            {doneCount}/{tasks.length}
           </span>
         </div>
-        {attempt.tasks.map((task) => (
+        {tasks.map((task) => (
           <div
             key={task.id}
             onClick={() => onOpenTask(task.id)}

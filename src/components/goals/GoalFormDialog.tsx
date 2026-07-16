@@ -11,19 +11,13 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
+import { Emoji } from "@/components/ui/emoji"
 import { useGoals } from "@/lib/goals-store"
 import { slugify, type Goal, type GoalMetric } from "@/data/goals"
-import { formatDateRangeLabel, quarterOptions } from "@/lib/date"
+import { formatDateRangeLabel, quarterOptions, startOfDay } from "@/lib/date"
+import { cn } from "@/lib/utils"
 
 const EMOJI_OPTIONS = ["🎯", "🚀", "📈", "💡", "🏆", "🔥"]
 
@@ -71,8 +65,7 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
   const [datePickerOpen, setDatePickerOpen] = useState(false)
   const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [privacy, setPrivacy] = useState<"Public" | "Private">("Public")
+  const [emoji, setEmoji] = useState(EMOJI_OPTIONS[0])
   const [metrics, setMetrics] = useState<DraftMetric[]>([emptyMetric()])
 
   useEffect(() => {
@@ -81,8 +74,7 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
     if (goal) {
       setDateRange({ from: goal.startDate, to: goal.endDate })
       setTitle(goal.title)
-      setDescription(goal.description ?? "")
-      setPrivacy(goal.privacy)
+      setEmoji(goal.emoji)
       setMetrics(
         goal.metrics.length > 0
           ? goal.metrics.slice(0, MAX_METRICS).map(draftFromMetric)
@@ -90,13 +82,13 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
       )
     } else {
       const [currentQuarter] = quarterOptions()
-      setDateRange({ from: currentQuarter.startDate, to: currentQuarter.endDate })
+      const today = startOfDay(new Date())
+      setDateRange({ from: today, to: currentQuarter.endDate })
       setTitle("")
-      setDescription("")
-      setPrivacy("Public")
+      setEmoji(EMOJI_OPTIONS[goals.length % EMOJI_OPTIONS.length])
       setMetrics([emptyMetric()])
     }
-  }, [open, goal])
+  }, [open, goal, goals.length])
 
   function handleOpenChange(next: boolean) {
     onOpenChange(next)
@@ -145,11 +137,10 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
       const updated: Goal = {
         ...goal,
         title: trimmedTitle,
-        description: description.trim() || undefined,
+        emoji,
         timePeriodLabel,
         startDate,
         endDate,
-        privacy,
         metrics: resolvedMetrics,
       }
       updateGoal(updated)
@@ -161,12 +152,10 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
       id: crypto.randomUUID(),
       slug: uniqueSlug(slugify(trimmedTitle)),
       title: trimmedTitle,
-      emoji: EMOJI_OPTIONS[goals.length % EMOJI_OPTIONS.length],
-      description: description.trim() || undefined,
+      emoji,
       timePeriodLabel,
       startDate,
       endDate,
-      privacy,
       metrics: resolvedMetrics,
     }
 
@@ -197,13 +186,22 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-foreground">Description</label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="What is this goal about?"
-                className="min-h-14"
-              />
+              <label className="text-xs font-medium text-foreground">Icon</label>
+              <div className="flex items-center gap-1">
+                {EMOJI_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setEmoji(option)}
+                    className={cn(
+                      "flex size-8 items-center justify-center rounded-md hover:bg-white/5",
+                      emoji === option && "bg-white/10 ring-1 ring-primary"
+                    )}
+                  >
+                    <Emoji value={option} className="size-5" />
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -233,19 +231,6 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
                   />
                 </PopoverContent>
               </Popover>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-foreground">Privacy</label>
-              <Select value={privacy} onValueChange={(v) => setPrivacy(v as "Public" | "Private")}>
-                <SelectTrigger className="w-full">
-                  <SelectValue>{privacy}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Public">Public</SelectItem>
-                  <SelectItem value="Private">Private</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
