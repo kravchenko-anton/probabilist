@@ -69,7 +69,7 @@ export function RecordResultsDialog({ open, onOpenChange, goal, attempt }: Recor
 
         <div className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
-            All steps are done{attempt.startedAt ? ` — started ${formatTimeSince(attempt.startedAt)}` : ""}.
+            All tasks are done{attempt.startedAt ? ` — started ${formatTimeSince(attempt.startedAt)}` : ""}.
             Measure each metric and enter where it actually landed. This updates the goal.
           </p>
 

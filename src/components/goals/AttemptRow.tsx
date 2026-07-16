@@ -1,10 +1,10 @@
-import { Check } from "lucide-react"
+import { Check, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   deadlineMissDays,
   formatMissDays,
   isOverdue,
-  todosDoneCount,
+  tasksDoneCount,
   type Attempt,
 } from "@/data/attempts"
 import { formatShortDate } from "@/lib/date"
@@ -12,21 +12,23 @@ import { formatShortDate } from "@/lib/date"
 interface AttemptRowProps {
   attempt: Attempt
   selected?: boolean
+  expanded?: boolean
+  onToggleExpand?: () => void
   onSelect: () => void
 }
 
 function StatusIndicator({ attempt }: { attempt: Attempt }) {
   if (attempt.status === "completed") {
     return (
-      <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+      <span className="flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-primary bg-primary text-primary-foreground">
         <Check size={10} />
       </span>
     )
   }
   if (attempt.status === "active") {
-    return <span className="size-4 shrink-0 rounded-full border-2 border-primary bg-primary/20" />
+    return <span className="size-4 shrink-0 rounded-[4px] border-2 border-primary bg-primary/20" />
   }
-  return <span className="size-4 shrink-0 rounded-full border border-muted-foreground/50" />
+  return <span className="size-4 shrink-0 rounded-[4px] border border-input" />
 }
 
 function Subtitle({ attempt }: { attempt: Attempt }) {
@@ -47,10 +49,10 @@ function Subtitle({ attempt }: { attempt: Attempt }) {
     )
   }
 
-  const steps =
+  const tasks =
     attempt.status === "active"
-      ? `${todosDoneCount(attempt)}/${attempt.todos.length} steps`
-      : `${attempt.todos.length} steps`
+      ? `${tasksDoneCount(attempt)}/${attempt.tasks.length} tasks`
+      : `${attempt.tasks.length} tasks`
 
   return (
     <span className="truncate text-xs text-muted-foreground">
@@ -58,17 +60,23 @@ function Subtitle({ attempt }: { attempt: Attempt }) {
         {attempt.deadline ? `Due ${formatShortDate(attempt.deadline)}` : "No deadline"}
       </span>
       {" · "}
-      {steps}
+      {tasks}
     </span>
   )
 }
 
-export function AttemptRow({ attempt, selected, onSelect }: AttemptRowProps) {
+export function AttemptRow({
+  attempt,
+  selected,
+  expanded,
+  onToggleExpand,
+  onSelect,
+}: AttemptRowProps) {
   return (
-    <button
+    <div
       onClick={onSelect}
       className={cn(
-        "flex items-start gap-2.5 px-4 py-2 text-left hover:bg-white/5",
+        "flex cursor-pointer items-start gap-2.5 px-4 py-2 text-left hover:bg-white/5",
         selected && "bg-white/5"
       )}
     >
@@ -80,6 +88,19 @@ export function AttemptRow({ attempt, selected, onSelect }: AttemptRowProps) {
         <span className="truncate text-sm font-medium text-foreground">{attempt.title}</span>
         <Subtitle attempt={attempt} />
       </span>
-    </button>
+      {onToggleExpand && (
+        <button
+          type="button"
+          aria-label={expanded ? "Hide tasks" : "Show tasks"}
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleExpand()
+          }}
+          className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
+        >
+          <ChevronRight size={14} className={cn("transition-transform", expanded && "rotate-90")} />
+        </button>
+      )}
+    </div>
   )
 }

@@ -125,6 +125,155 @@
 }
 
 
+/* Slim dark scrollbars (standard properties; modern Chrome/Firefox) */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #3A3B3C transparent;
+}
+
+/* Fallback for older Chromium builds that ignore the standard properties */
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: #3A3B3C;
+    border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: #4A4B4C;
+}
+
+*::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* Rich text editor (Lexical) */
+.editor-input {
+    min-height: 100%;
+    padding: 0.25rem 1.25rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--foreground);
+    outline: none;
+}
+
+.editor-placeholder {
+    position: absolute;
+    top: 0.25rem;
+    left: 1.25rem;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+    pointer-events: none;
+    user-select: none;
+}
+
+.editor-paragraph {
+    margin: 0 0 0.25rem;
+}
+
+.editor-h1,
+.editor-h2,
+.editor-h3 {
+    margin: 0.75rem 0 0.35rem;
+    font-family: var(--font-heading);
+    font-weight: 500;
+    color: var(--foreground);
+}
+
+.editor-h1 { font-size: 1.25rem; }
+.editor-h2 { font-size: 1.1rem; }
+.editor-h3 { font-size: 1rem; }
+
+.editor-quote {
+    margin: 0.35rem 0;
+    padding-left: 0.85rem;
+    border-left: 2px solid var(--primary);
+    color: var(--muted-foreground);
+}
+
+.editor-code-inline {
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    background: #282828;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.8em;
+}
+
+.editor-ul,
+.editor-ol {
+    margin: 0.15rem 0;
+    padding-left: 1.4rem;
+}
+
+.editor-ul { list-style: disc; }
+.editor-ol { list-style: decimal; }
+
+.editor-li {
+    margin: 0.1rem 0;
+}
+
+.editor-nested-li {
+    list-style: none;
+}
+
+.editor-ul:has(> .editor-li-checked),
+.editor-ul:has(> .editor-li-unchecked) {
+    padding-left: 0;
+    list-style: none;
+}
+
+.editor-li-checked,
+.editor-li-unchecked {
+    position: relative;
+    margin: 0.1rem 0;
+    padding-left: 1.6rem;
+    list-style: none;
+    outline: none;
+}
+
+.editor-li-checked:before,
+.editor-li-unchecked:before {
+    content: "";
+    position: absolute;
+    top: 0.24em;
+    left: 0;
+    width: 0.95rem;
+    height: 0.95rem;
+    border: 1px solid color-mix(in srgb, var(--muted-foreground) 50%, transparent);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.editor-li-checked {
+    color: var(--muted-foreground);
+    text-decoration: line-through;
+}
+
+.editor-li-checked:before {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.editor-li-checked:after {
+    content: "";
+    position: absolute;
+    top: 0.38em;
+    left: 0.34rem;
+    width: 0.28rem;
+    height: 0.52rem;
+    border: solid var(--primary-foreground);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    cursor: pointer;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

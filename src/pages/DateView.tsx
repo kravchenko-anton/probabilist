@@ -1,8 +1,15 @@
 import { useMemo, useState } from "react"
 import type { LucideIcon } from "lucide-react"
-import { inboxTasks } from "@/data/tasks"
-import { groupsForView, type DateViewKind } from "@/lib/task-groups"
-import { formatHeaderDate, formatTime, formatWeekdayShort } from "@/lib/date"
+import { useAppTasks, type AppTask } from "@/lib/tasks-store"
+import { groupsForView, type DateViewKind, type TaskGroupKind } from "@/lib/task-groups"
+import {
+  addDays,
+  formatShortDate,
+  formatTime,
+  formatWeekdayShort,
+  hasTimeOfDay,
+  startOfDay,
+} from "@/lib/date"
 import { useIsMobile, useMediaQuery } from "@/hooks/use-mobile"
 import { TaskListHeader } from "@/components/tasks/TaskListHeader"
 import { AddTaskBar } from "@/components/tasks/AddTaskBar"
@@ -18,8 +25,23 @@ interface DateViewProps {
   icon?: LucideIcon
 }
 
+function rightLabelFor(task: AppTask, groupKind: TaskGroupKind) {
+  if (!task.date) return undefined
+  if (groupKind === "next7") return formatWeekdayShort(task.date)
+  if (groupKind === "overdue") return formatShortDate(task.date)
+  return hasTimeOfDay(task.date) ? formatTime(task.date) : undefined
+}
+
+function defaultDateForView(view: DateViewKind): Date | undefined {
+  if (view === "today") return startOfDay(new Date())
+  if (view === "tomorrow") return startOfDay(addDays(new Date(), 1))
+  if (view === "next7") return startOfDay(addDays(new Date(), 2))
+  return undefined
+}
+
 export function DateView({ view, title, icon }: DateViewProps) {
-  const groups = useMemo(() => groupsForView(inboxTasks, view), [view])
+  const { tasks, addTask, updateAppTask } = useAppTasks()
+  const groups = useMemo(() => groupsForView(tasks, view), [tasks, view])
   const allTasks = useMemo(() => groups.flatMap((group) => group.tasks), [groups])
   const [selectedId, setSelectedId] = useState(allTasks[0]?.id)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -32,11 +54,14 @@ export function DateView({ view, title, icon }: DateViewProps) {
 
   const detailPane = selectedTask ? (
     <TaskDetailPane
-      title={selectedTask.title}
-      subtitle={selectedTask.subtitle}
-      description={selectedTask.description}
-      dueLabel={`${formatHeaderDate(selectedTask.date)} · ${formatTime(selectedTask.date)}`}
-      footerLabel="Inbox"
+      key={selectedTask.id}
+      task={selectedTask}
+      footerEmoji={selectedTask.origin.kind === "attempt" ? selectedTask.origin.emoji : undefined}
+      footerLabel={selectedTask.origin.kind === "attempt" ? selectedTask.origin.label : "Inbox"}
+      onToggleDone={(done) => updateAppTask(selectedTask, { done })}
+      onRename={(name) => updateAppTask(selectedTask, { title: name })}
+      onSchedule={(date) => updateAppTask(selectedTask, { date })}
+      onDescriptionChange={(description) => updateAppTask(selectedTask, { description })}
     />
   ) : null
 
@@ -44,7 +69,16 @@ export function DateView({ view, title, icon }: DateViewProps) {
     <div className="flex h-full flex-1">
       <div className="flex w-full flex-col border-border lg:w-[60%] lg:border-r">
         <TaskListHeader title={title} icon={icon} />
-        <AddTaskBar />
+        <AddTaskBar
+          onAdd={(taskTitle) =>
+            addTask({
+              id: crypto.randomUUID(),
+              title: taskTitle,
+              done: false,
+              date: defaultDateForView(view),
+            })
+          }
+        />
         <div className="flex flex-1 flex-col overflow-y-auto pb-4">
           {groups.map((group) => (
             <TaskSection key={group.kind} title={group.title} count={group.tasks.length}>
@@ -52,16 +86,23 @@ export function DateView({ view, title, icon }: DateViewProps) {
                 <TaskRow
                   key={task.id}
                   title={task.title}
+                  emoji={task.origin.kind === "attempt" ? task.origin.emoji : task.emoji}
+                  done={task.done}
                   hasNote={!!task.description}
                   selected={task.id === selectedTask?.id}
                   onSelect={() => {
                     setSelectedId(task.id)
                     if (!isDesktop) setDetailOpen(true)
                   }}
-                  rightLabel={
-                    group.kind === "next7" ? formatWeekdayShort(task.date) : formatTime(task.date)
+                  onToggleDone={(done) => updateAppTask(task, { done })}
+                  rightLabel={rightLabelFor(task, group.kind)}
+                  rightLabelClassName={
+                    group.kind === "next7"
+                      ? "text-primary"
+                      : group.kind === "overdue"
+                        ? "text-red-400"
+                        : undefined
                   }
-                  rightLabelClassName={group.kind === "next7" ? "text-primary" : undefined}
                 />
               ))}
             </TaskSection>

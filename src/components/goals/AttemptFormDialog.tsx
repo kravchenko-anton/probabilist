@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { useGoals } from "@/lib/goals-store"
-import type { Attempt, AttemptTodo } from "@/data/attempts"
+import type { Attempt, AttemptTask } from "@/data/attempts"
 import { formatShortDate } from "@/lib/date"
 import { cn } from "@/lib/utils"
 
@@ -42,8 +42,8 @@ export function AttemptFormDialog({
   const [description, setDescription] = useState("")
   const [deadline, setDeadline] = useState<Date>()
   const [deadlinePickerOpen, setDeadlinePickerOpen] = useState(false)
-  const [todos, setTodos] = useState<AttemptTodo[]>([])
-  const [todoInput, setTodoInput] = useState("")
+  const [tasks, setTasks] = useState<AttemptTask[]>([])
+  const [taskInput, setTaskInput] = useState("")
   const [noteOpenId, setNoteOpenId] = useState<string>()
 
   useEffect(() => {
@@ -52,29 +52,29 @@ export function AttemptFormDialog({
     setIcon(attempt?.icon ?? ATTEMPT_ICONS[0])
     setDescription(attempt?.description ?? "")
     setDeadline(attempt?.deadline)
-    setTodos(attempt?.todos ?? [])
-    setTodoInput("")
+    setTasks(attempt?.tasks ?? [])
+    setTaskInput("")
     setNoteOpenId(undefined)
   }, [open, attempt])
 
-  function addTodo() {
-    const value = todoInput.trim()
+  function addTask() {
+    const value = taskInput.trim()
     if (!value) return
-    setTodos((prev) => [...prev, { id: crypto.randomUUID(), title: value, done: false }])
-    setTodoInput("")
+    setTasks((prev) => [...prev, { id: crypto.randomUUID(), title: value, done: false }])
+    setTaskInput("")
   }
 
-  function removeTodo(id: string) {
-    setTodos((prev) => prev.filter((todo) => todo.id !== id))
+  function removeTask(id: string) {
+    setTasks((prev) => prev.filter((task) => task.id !== id))
   }
 
-  function setTodoNote(id: string, note: string) {
-    setTodos((prev) =>
-      prev.map((todo) => (todo.id === id ? { ...todo, note: note || undefined } : todo))
+  function setTaskNote(id: string, note: string) {
+    setTasks((prev) =>
+      prev.map((task) => (task.id === id ? { ...task, description: note || undefined } : task))
     )
   }
 
-  const isValid = !!title.trim() && todos.length > 0 && !!deadline
+  const isValid = !!title.trim() && tasks.length > 0 && !!deadline
 
   function handleSave() {
     if (!isValid || !deadline) return
@@ -87,7 +87,7 @@ export function AttemptFormDialog({
         icon,
         description: description.trim() || undefined,
         deadline,
-        todos,
+        tasks,
       })
       onOpenChange(false)
       return
@@ -100,7 +100,7 @@ export function AttemptFormDialog({
       icon,
       description: description.trim() || undefined,
       deadline,
-      todos,
+      tasks,
       status: "planned",
       createdAt: new Date(),
       predictions: [],
@@ -196,40 +196,40 @@ export function AttemptFormDialog({
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-foreground">
-              To-do list <span className="text-destructive">*</span>
+              Tasks <span className="text-destructive">*</span>
             </label>
             <div className="flex items-center gap-1.5">
               <Input
-                value={todoInput}
-                onChange={(e) => setTodoInput(e.target.value)}
+                value={taskInput}
+                onChange={(e) => setTaskInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault()
-                    addTodo()
+                    addTask()
                   }
                 }}
-                placeholder="Add a step and press Enter"
+                placeholder="Add a task and press Enter"
                 className="flex-1"
               />
-              <Button type="button" variant="ghost" size="icon-sm" onClick={addTodo}>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={addTask}>
                 <Plus size={13} />
               </Button>
             </div>
 
             <div className="flex flex-col gap-1">
-              {todos.map((todo) => (
-                <div key={todo.id} className="flex flex-col gap-1 rounded-md bg-white/5 px-2 py-1.5">
+              {tasks.map((task) => (
+                <div key={task.id} className="flex flex-col gap-1 rounded-md bg-white/5 px-2 py-1.5">
                   <div className="flex items-center gap-2 text-sm text-foreground">
-                    <span className="size-3.5 shrink-0 rounded-full border border-muted-foreground/50" />
-                    <span className="flex-1 truncate">{todo.title}</span>
+                    <span className="size-3.5 shrink-0 rounded-[4px] border border-muted-foreground/50" />
+                    <span className="flex-1 truncate">{task.title}</span>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon-sm"
                       onClick={() =>
-                        setNoteOpenId((prev) => (prev === todo.id ? undefined : todo.id))
+                        setNoteOpenId((prev) => (prev === task.id ? undefined : task.id))
                       }
-                      className={cn(todo.note && "text-primary-foreground")}
+                      className={cn(task.description && "text-primary-foreground")}
                     >
                       <StickyNote size={12} />
                     </Button>
@@ -237,25 +237,25 @@ export function AttemptFormDialog({
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => removeTodo(todo.id)}
+                      onClick={() => removeTask(task.id)}
                     >
                       <X size={12} />
                     </Button>
                   </div>
-                  {noteOpenId === todo.id && (
+                  {noteOpenId === task.id && (
                     <Textarea
-                      value={todo.note ?? ""}
-                      onChange={(e) => setTodoNote(todo.id, e.target.value)}
-                      placeholder="Note for this step — context, links, what to look for…"
+                      value={task.description ?? ""}
+                      onChange={(e) => setTaskNote(task.id, e.target.value)}
+                      placeholder="Note for this task — context, links, what to look for…"
                       className="min-h-12 text-xs"
                     />
                   )}
                 </div>
               ))}
             </div>
-            {todos.length === 0 && (
+            {tasks.length === 0 && (
               <p className="text-[11px] text-muted-foreground">
-                An attempt needs at least one step. You will check these off as you work.
+                An attempt needs at least one task. You will check these off as you work.
               </p>
             )}
           </div>

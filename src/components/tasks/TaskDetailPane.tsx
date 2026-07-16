@@ -1,56 +1,107 @@
-import { CalendarDays, Flag, MessageSquare, MoreHorizontal } from "lucide-react"
+import { useState } from "react"
+import { ArrowLeft, Flag, MessageSquare, MoreHorizontal } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { RichTextEditor } from "@/components/editor/RichTextEditor"
+import { SchedulePopover } from "@/components/tasks/SchedulePopover"
+import { cn } from "@/lib/utils"
 
-interface TaskDetailPaneProps {
-  emoji?: string
+export interface EditableTask {
+  id: string
   title: string
-  subtitle?: string
-  description?: string[]
-  dueLabel: string
-  footerEmoji?: string
-  footerLabel: string
+  emoji?: string
+  done: boolean
+  date?: Date
+  description?: string
 }
 
+interface TaskDetailPaneProps {
+  task: EditableTask
+  footerEmoji?: string
+  footerLabel: string
+  onBack?: () => void
+  onToggleDone: (done: boolean) => void
+  onRename: (title: string) => void
+  onSchedule: (date?: Date) => void
+  onDescriptionChange: (description?: string) => void
+}
+
+/**
+ * Editable task card: live checkbox, renamable title, date planning and a
+ * rich-text description. Re-key by task id so local drafts reset per task.
+ */
 export function TaskDetailPane({
-  emoji,
-  title,
-  subtitle,
-  description,
-  dueLabel,
+  task,
   footerEmoji,
   footerLabel,
+  onBack,
+  onToggleDone,
+  onRename,
+  onSchedule,
+  onDescriptionChange,
 }: TaskDetailPaneProps) {
+  const [titleDraft, setTitleDraft] = useState(task.title)
+
+  const commitTitle = () => {
+    const title = titleDraft.trim()
+    if (!title || title === task.title) {
+      setTitleDraft(task.title)
+      return
+    }
+    onRename(title)
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 px-5 py-3">
-        <span className="size-4 shrink-0 rounded-full border border-muted-foreground/50" />
-        <span className="flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-1 text-xs text-primary">
-          <CalendarDays size={13} />
-          {dueLabel}
-        </span>
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back"
+            className="mr-1 flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-white/5 hover:text-foreground"
+          >
+            <ArrowLeft size={15} />
+          </button>
+        )}
+        <Checkbox
+          checked={task.done}
+          onCheckedChange={(checked) => onToggleDone(!!checked)}
+        />
+        <SchedulePopover date={task.date} done={task.done} onSchedule={onSchedule} placeholder="Pick a date" />
         <div className="flex-1" />
         <Flag size={15} className="text-muted-foreground" />
       </div>
 
-      <div className="flex flex-col gap-2 px-5 py-2">
-        <h3 className="flex items-center gap-2 font-heading text-lg font-medium text-foreground">
-          {emoji && <span>{emoji}</span>}
-          {title}
-        </h3>
-        {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+      <div className="flex items-center gap-2 px-5 py-2">
+        {task.emoji && <span className="text-lg leading-none">{task.emoji}</span>}
+        <input
+          value={titleDraft}
+          onChange={(e) => setTitleDraft(e.target.value)}
+          onBlur={commitTitle}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur()
+            if (e.key === "Escape") {
+              setTitleDraft(task.title)
+              e.currentTarget.blur()
+            }
+          }}
+          placeholder="Task title"
+          className={cn(
+            "w-full flex-1 bg-transparent font-heading text-lg font-medium text-foreground outline-none placeholder:text-muted-foreground",
+            task.done && "text-muted-foreground line-through"
+          )}
+        />
       </div>
 
-      {description && description.length > 0 && (
-        <ul className="flex flex-col gap-1.5 px-5 py-2">
-          {description.map((item) => (
-            <li key={item} className="flex items-center gap-2.5 text-sm text-foreground">
-              <span className="size-4 shrink-0 rounded-full border border-muted-foreground/50" />
-              {item}
-            </li>
-          ))}
-        </ul>
-      )}
+      <RichTextEditor
+        key={task.id}
+        value={task.description}
+        onChange={(value) => onDescriptionChange(value || undefined)}
+        placeholder="Add a description — plans, details, links…"
+        className="pt-1"
+      />
 
-      <div className="mt-auto flex items-center gap-2 border-t border-border px-5 py-3 text-muted-foreground">
+      <div className="flex items-center gap-2 border-t border-border px-5 py-3 text-muted-foreground">
         {footerEmoji && <span className="text-[13px] leading-none">{footerEmoji}</span>}
         <span className="flex-1 truncate text-xs">{footerLabel}</span>
         <MessageSquare size={15} />

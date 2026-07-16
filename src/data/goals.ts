@@ -37,6 +37,11 @@ export function goalProgress(goal: Goal) {
   return total / goal.metrics.length
 }
 
+/** Done when every metric reached its target. */
+export function isGoalDone(goal: Goal) {
+  return goal.metrics.length > 0 && goal.metrics.every((metric) => metricProgress(metric) >= 100)
+}
+
 export function slugify(title: string) {
   const base = title
     .trim()

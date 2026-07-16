@@ -1,10 +1,11 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
-import { Plus, Target } from "lucide-react"
+import { Check, Plus, Target } from "lucide-react"
 import { useGoals } from "@/lib/goals-store"
-import { goalProgress } from "@/data/goals"
+import { goalProgress, isGoalDone } from "@/data/goals"
 import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 export function GoalsPage() {
   const { goals } = useGoals()
@@ -30,6 +31,7 @@ export function GoalsPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {goals.map((goal) => {
               const progress = goalProgress(goal)
+              const done = isGoalDone(goal)
               return (
                 <Link
                   key={goal.id}
@@ -41,14 +43,23 @@ export function GoalsPage() {
                     <span className="flex-1 truncate text-sm font-medium text-foreground">
                       {goal.title}
                     </span>
-                    <span className="text-sm text-muted-foreground">
+                    <span
+                      className={cn(
+                        "flex items-center gap-1 text-sm",
+                        done ? "text-emerald-400" : "text-muted-foreground"
+                      )}
+                    >
+                      {done && <Check size={13} />}
                       {Math.round(progress)}%
                     </span>
                   </div>
 
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-primary transition-all"
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        done ? "bg-emerald-400" : "bg-primary"
+                      )}
                       style={{ width: `${progress}%` }}
                     />
                   </div>

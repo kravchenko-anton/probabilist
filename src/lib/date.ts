@@ -30,6 +30,11 @@ export function dayOffsetFromToday(date: Date) {
   return Math.round((target.getTime() - today.getTime()) / 86_400_000)
 }
 
+/** True when the date carries a meaningful time of day (not midnight). */
+export function hasTimeOfDay(date: Date) {
+  return date.getHours() !== 0 || date.getMinutes() !== 0
+}
+
 export function formatTime(date: Date) {
   return date.toLocaleTimeString("en-US", {
     hour: "2-digit",

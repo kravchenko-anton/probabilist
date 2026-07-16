@@ -2,7 +2,7 @@ import { useState } from "react"
 import { NavLink } from "react-router-dom"
 import { Calendar1, CalendarRange, Inbox, Plus, Target } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
-import { inboxTasks } from "@/data/tasks"
+import { useAppTasks } from "@/lib/tasks-store"
 import { countForView } from "@/lib/task-groups"
 import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
 import { cn } from "@/lib/utils"
@@ -13,11 +13,6 @@ interface Tab {
   icon: LucideIcon
   count?: number
 }
-
-const leftTabs: Tab[] = [
-  { label: "Today", to: "/today", icon: Calendar1, count: countForView(inboxTasks, "today") },
-  { label: "Inbox", to: "/inbox", icon: Inbox, count: countForView(inboxTasks, "inbox") },
-]
 
 const rightTabs: Tab[] = [
   { label: "Week", to: "/next-7-days", icon: CalendarRange },
@@ -59,6 +54,12 @@ function NavTab({ label, to, icon: Icon, count }: Tab) {
 
 export function BottomNav() {
   const [createGoalOpen, setCreateGoalOpen] = useState(false)
+  const { tasks } = useAppTasks()
+
+  const leftTabs: Tab[] = [
+    { label: "Today", to: "/today", icon: Calendar1, count: countForView(tasks, "today") },
+    { label: "Inbox", to: "/inbox", icon: Inbox, count: countForView(tasks, "inbox") },
+  ]
 
   return (
     <nav className="px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">

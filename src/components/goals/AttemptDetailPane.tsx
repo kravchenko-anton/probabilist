@@ -1,27 +1,32 @@
 import { useState } from "react"
-import { CalendarDays, ChevronDown, ChevronRight, Flag, Pencil, Play, Trash2 } from "lucide-react"
+import { CalendarDays, ChevronRight, FileText, Flag, Pencil, Play, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { useGoals } from "@/lib/goals-store"
 import type { Goal } from "@/data/goals"
 import {
-  allTodosDone,
+  allTasksDone,
   classifyOutcome,
   deadlineMissDays,
   formatMissDays,
   isOverdue,
   metricDirection,
-  todosDoneCount,
+  tasksDoneCount,
   type Attempt,
 } from "@/data/attempts"
 import { metricColor } from "@/lib/metric-colors"
 import { formatShortDate, formatTimeSince } from "@/lib/date"
+import { TaskDetailPane } from "@/components/tasks/TaskDetailPane"
+import { SchedulePopover } from "@/components/tasks/SchedulePopover"
 import { cn } from "@/lib/utils"
 
 interface AttemptDetailPaneProps {
   goal: Goal
   attempt: Attempt
+  /** Task drilled into within this pane; controlled by the parent (URL). */
+  openTaskId?: string
+  onOpenTask: (taskId?: string) => void
   onEdit: () => void
   onStart: () => void
   onRecordResults: () => void
@@ -34,7 +39,7 @@ const STATUS_LABEL: Record<Attempt["status"], string> = {
   completed: "Completed",
 }
 
-function TodoNoteEditor({
+function NoteEditor({
   note,
   onSave,
   placeholder,
@@ -58,18 +63,41 @@ function TodoNoteEditor({
 export function AttemptDetailPane({
   goal,
   attempt,
+  openTaskId,
+  onOpenTask,
   onEdit,
   onStart,
   onRecordResults,
   onDeleted,
 }: AttemptDetailPaneProps) {
-  const { toggleAttemptTodo, updateAttemptTodo, updateAttempt, deleteAttempt } = useGoals()
-  const [expandedTodoId, setExpandedTodoId] = useState<string>()
+  const { toggleAttemptTask, updateAttemptTask, updateAttempt, deleteAttempt } = useGoals()
 
-  const doneCount = todosDoneCount(attempt)
-  const readyForResults = allTodosDone(attempt)
+  const locked = attempt.status === "completed"
+  const doneCount = tasksDoneCount(attempt)
+  const readyForResults = allTasksDone(attempt)
   const miss = attempt.status === "completed" ? deadlineMissDays(attempt) : null
   const overdue = isOverdue(attempt)
+
+  const openTask = attempt.tasks.find((task) => task.id === openTaskId)
+  if (openTask) {
+    return (
+      <TaskDetailPane
+        key={openTask.id}
+        task={openTask}
+        footerEmoji={attempt.icon}
+        footerLabel={attempt.title}
+        onBack={() => onOpenTask(undefined)}
+        onToggleDone={() => {
+          if (!locked) toggleAttemptTask(attempt.id, openTask.id)
+        }}
+        onRename={(title) => updateAttemptTask(attempt.id, openTask.id, { title })}
+        onSchedule={(date) => updateAttemptTask(attempt.id, openTask.id, { date })}
+        onDescriptionChange={(description) =>
+          updateAttemptTask(attempt.id, openTask.id, { description })
+        }
+      />
+    )
+  }
 
   const dateLabel =
     attempt.status === "completed" && attempt.completedAt
@@ -145,64 +173,47 @@ export function AttemptDetailPane({
           {attempt.icon && <span>{attempt.icon}</span>}
           {attempt.title}
         </h3>
-        {attempt.description && (
-          <p className="text-sm text-muted-foreground">{attempt.description}</p>
-        )}
       </div>
 
-      <div className="flex flex-col gap-1 px-5 py-2">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Steps</span>
+      <div className="flex flex-col gap-0.5 px-5 py-2">
+        <div className="flex items-center gap-2 pb-1 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Tasks</span>
           <span>
-            {doneCount}/{attempt.todos.length}
+            {doneCount}/{attempt.tasks.length}
           </span>
         </div>
-        {attempt.todos.map((todo) => {
-          const expanded = expandedTodoId === todo.id
-          return (
-            <div key={todo.id} className="flex flex-col gap-1.5 rounded-md px-1 py-1 hover:bg-white/5">
-              <div className="flex items-center gap-2.5">
-                <Checkbox
-                  checked={todo.done}
-                  disabled={attempt.status === "completed"}
-                  onCheckedChange={() => toggleAttemptTodo(attempt.id, todo.id)}
-                />
-                <button
-                  onClick={() => setExpandedTodoId(expanded ? undefined : todo.id)}
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
-                >
-                  <span
-                    className={cn(
-                      "truncate text-foreground",
-                      todo.done && "text-muted-foreground line-through"
-                    )}
-                  >
-                    {todo.title}
-                  </span>
-                  {todo.note && !expanded && (
-                    <span className="size-1.5 shrink-0 rounded-full bg-primary" />
-                  )}
-                  {expanded ? (
-                    <ChevronDown size={13} className="ml-auto shrink-0 text-muted-foreground" />
-                  ) : (
-                    <ChevronRight size={13} className="ml-auto shrink-0 text-muted-foreground" />
-                  )}
-                </button>
-              </div>
-              {expanded && (
-                <div className="pb-1 pl-6">
-                  <TodoNoteEditor
-                    note={todo.note}
-                    placeholder="Notes for this step — what you found, links, results…"
-                    onSave={(note) =>
-                      updateAttemptTodo(attempt.id, todo.id, { note: note || undefined })
-                    }
-                  />
-                </div>
+        {attempt.tasks.map((task) => (
+          <div
+            key={task.id}
+            onClick={() => onOpenTask(task.id)}
+            className="group flex cursor-pointer items-center gap-2.5 rounded-md px-1.5 py-1.5 hover:bg-white/5"
+          >
+            <Checkbox
+              checked={task.done}
+              disabled={locked}
+              onCheckedChange={() => toggleAttemptTask(attempt.id, task.id)}
+              onClick={(e) => e.stopPropagation()}
+            />
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate text-sm text-foreground",
+                task.done && "text-muted-foreground line-through"
               )}
-            </div>
-          )
-        })}
+            >
+              {task.title}
+            </span>
+            {task.description && (
+              <FileText size={12} className="shrink-0 text-muted-foreground" />
+            )}
+            <SchedulePopover
+              date={task.date}
+              done={task.done}
+              onSchedule={(date) => updateAttemptTask(attempt.id, task.id, { date })}
+              className={cn(!task.date && "opacity-0 transition-opacity group-hover:opacity-100")}
+            />
+            <ChevronRight size={13} className="shrink-0 text-muted-foreground" />
+          </div>
+        ))}
       </div>
 
       {attempt.predictions.length > 0 && (
@@ -267,7 +278,7 @@ export function AttemptDetailPane({
       {attempt.status === "completed" && (
         <div className="flex flex-col gap-1.5 px-5 py-2">
           <span className="text-xs font-medium text-foreground">Retrospective</span>
-          <TodoNoteEditor
+          <NoteEditor
             key={attempt.id}
             note={attempt.retrospective}
             placeholder="What did you learn? What would you update or do better next time?"
@@ -294,8 +305,8 @@ export function AttemptDetailPane({
           <>
             <span className="flex-1 text-xs text-muted-foreground">
               {readyForResults
-                ? "All steps done — measure your metrics."
-                : "Finish every step to record results."}
+                ? "All tasks done — measure your metrics."
+                : "Finish every task to record results."}
             </span>
             <Button size="sm" onClick={onRecordResults} disabled={!readyForResults}>
               Record results

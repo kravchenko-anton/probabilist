@@ -1,11 +1,14 @@
 import type { GoalMetric } from "@/data/goals"
 import { startOfDay } from "@/lib/date"
 
-export interface AttemptTodo {
+export interface AttemptTask {
   id: string
   title: string
   done: boolean
-  note?: string
+  /** Scheduled day — set while planning; surfaces the task in Today/Tomorrow views. */
+  date?: Date
+  /** Serialized Lexical document; plain text from legacy notes is also accepted. */
+  description?: string
 }
 
 export interface MetricPrediction {
@@ -28,7 +31,7 @@ export interface Attempt {
   title: string
   icon?: string
   description?: string
-  todos: AttemptTodo[]
+  tasks: AttemptTask[]
   status: AttemptStatus
   createdAt: Date
   startedAt?: Date
@@ -39,12 +42,12 @@ export interface Attempt {
   retrospective?: string
 }
 
-export function todosDoneCount(attempt: Attempt) {
-  return attempt.todos.filter((todo) => todo.done).length
+export function tasksDoneCount(attempt: Attempt) {
+  return attempt.tasks.filter((task) => task.done).length
 }
 
-export function allTodosDone(attempt: Attempt) {
-  return attempt.todos.length > 0 && attempt.todos.every((todo) => todo.done)
+export function allTasksDone(attempt: Attempt) {
+  return attempt.tasks.length > 0 && attempt.tasks.every((task) => task.done)
 }
 
 /**

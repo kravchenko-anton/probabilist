@@ -7,6 +7,7 @@ import { GoalView } from "@/pages/GoalView"
 import { GoalsPage } from "@/pages/GoalsPage"
 
 function App() {
+  
   return (
     <Routes>
       <Route element={<Layout />}>
