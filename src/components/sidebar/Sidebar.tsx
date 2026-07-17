@@ -1,15 +1,16 @@
-import { useState } from "react"
-import { Link, NavLink, useLocation } from "react-router-dom"
-import { BrainCog, Check, ChevronRight, Plus, Settings } from "lucide-react"
-import { Emoji } from "@/components/ui/emoji"
-import { goalProgress, isGoalDone } from "@/data/goals"
-import { activeTasks, tasksDoneCount } from "@/data/attempts"
-import { useGoals } from "@/lib/goals-store"
-import { useAppTasks } from "@/lib/tasks-store"
-import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
 import { AttemptFormDialog } from "@/components/goals/AttemptFormDialog"
+import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
+import { Emoji } from "@/components/ui/emoji"
+import { activeTasks, tasksDoneCount } from "@/data/attempts"
+import { goalProgress, isGoalDone } from "@/data/goals"
+import { useAuth } from "@/lib/auth"
+import { useGoals } from "@/lib/goals-store"
 import { countForView } from "@/lib/task-groups"
+import { useAppTasks } from "@/lib/tasks-store"
 import { cn } from "@/lib/utils"
+import { BrainCog, Check, ChevronRight, LogOut, Plus } from "lucide-react"
+import { useState } from "react"
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom"
 
 /** Avatar chip next to the logo; hovering it reveals the profile card with logout. */
 
@@ -52,10 +53,17 @@ function ExpandToggle({
 export function Sidebar() {
   const { goals, attempts } = useGoals()
   const { tasks } = useAppTasks()
+  const { user, signOut } = useAuth()
+  const navigate = useNavigate()
   const [createGoalOpen, setCreateGoalOpen] = useState(false)
   const [attemptFormGoalId, setAttemptFormGoalId] = useState<string>()
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const location = useLocation()
+
+  async function handleSignOut() {
+    await signOut()
+    navigate("/login", { replace: true })
+  }
 
   const activeAttemptId = new URLSearchParams(location.search).get("attempt")
 
@@ -82,7 +90,7 @@ export function Sidebar() {
        <div
          className="flex cursor-pointer items-center gap-2 px-2 py-1.5">
          <BrainCog size={18} />
-         <h1 className="flex-1 truncate font-logo font-medium">Probabilist</h1>
+         <h1 className="flex-1 truncate font-logo font-medium">loopy</h1>
        </div>
      </Link>
 
@@ -230,14 +238,30 @@ export function Sidebar() {
       </div>
      </div>
 
-      <div className="flex shrink-0 items-center gap-2 border-t justify-between border-white/5 px-3 py-2">
-     <div
-        onClick={() => setCreateGoalOpen(true)}
-       className='flex items-center justify-center gap-2 cursor-pointer hover:bg-white/5 rounded-md px-2 py-1.5'>
-       <Plus size={18} className="shrink-0 text-muted-foreground" />
-       <p className="text-[14px] text-muted-foreground">New Goal</p>
-     </div>
-        <Settings size={15} className="shrink-0 text-muted-foreground" />
+      <div className="flex shrink-0 flex-col gap-1 border-t border-white/5 px-2 py-2">
+        <div className="flex items-center justify-between gap-2 px-1">
+          <div
+            onClick={() => setCreateGoalOpen(true)}
+            className="flex cursor-pointer items-center justify-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/5"
+          >
+            <Plus size={18} className="shrink-0 text-muted-foreground" />
+            <p className="text-[14px] text-muted-foreground">New Goal</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            aria-label="Log out"
+            title="Log out"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-white/5 hover:text-foreground"
+          >
+            <LogOut size={15} />
+          </button>
+        </div>
+        {user?.email && (
+          <p className="truncate px-2 text-[11px] text-muted-foreground/70">
+            {user.email}
+          </p>
+        )}
       </div>
 
       <GoalFormDialog open={createGoalOpen} onOpenChange={setCreateGoalOpen} />
