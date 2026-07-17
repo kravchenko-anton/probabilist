@@ -1,68 +1,75 @@
-import { useMemo } from "react"
-import { create } from "zustand"
-import { initialTasks, type TodoTask } from "@/data/tasks"
+import type { TodoTask } from "@/data/tasks"
+import {
+  dbDeleteTask,
+  dbInsertTask,
+  dbUpdateTask,
+  fetchAllTasks,
+} from "@/lib/db"
 import { useGoalsStore } from "@/lib/goals-store"
 import { requestTimeLog } from "@/lib/time-log-store"
+import { useMemo } from "react"
+import { create } from "zustand"
 
-const TASKS_KEY = "probabilist:tasks"
-
-function loadTasks(): TodoTask[] {
-  if (typeof window === "undefined") return initialTasks
-  const raw = window.localStorage.getItem(TASKS_KEY)
-  if (!raw) return initialTasks
-  try {
-    const parsed = JSON.parse(raw) as TodoTask[]
-    return parsed.map((task) => ({
-      ...task,
-      date: task.date ? new Date(task.date) : undefined,
-      completedAt: task.completedAt ? new Date(task.completedAt) : undefined,
-      deletedAt: task.deletedAt ? new Date(task.deletedAt) : undefined,
-    }))
-  } catch {
-    return initialTasks
-  }
-}
-
-function persistTasks(tasks: TodoTask[]) {
-  if (typeof window === "undefined") return
-  window.localStorage.setItem(TASKS_KEY, JSON.stringify(tasks))
-}
+export type DataStatus = "idle" | "loading" | "ready" | "error"
 
 interface TasksState {
   tasks: TodoTask[]
+  status: DataStatus
+  hydrate: () => Promise<void>
+  reset: () => void
   addTask: (task: TodoTask) => void
   updateTask: (taskId: string, patch: Partial<TodoTask>) => void
   deleteTask: (taskId: string) => void
 }
 
-export const useTasksStore = create<TasksState>()((set, get) => {
-  const commit = (updater: (prev: TodoTask[]) => TodoTask[]) =>
-    set((state) => {
-      const tasks = updater(state.tasks)
-      persistTasks(tasks)
-      return { tasks }
-    })
+export const useTasksStore = create<TasksState>()((set, get) => ({
+  tasks: [],
+  status: "idle",
 
-  return {
-    tasks: loadTasks(),
-    addTask: (task) => commit((prev) => [...prev, task]),
-    updateTask: (taskId, patch) => {
-      if (patch.done) {
-        const task = get().tasks.find((t) => t.id === taskId)
-        // Pops the "time it took" dialog when the task flips to done.
-        if (task && !task.done)
-          requestTimeLog({
-            target: { kind: "inbox", taskId },
-            title: task.title,
-            estimatedMinutes: task.estimatedMinutes,
-            actualMinutes: task.actualMinutes,
-          })
-      }
-      commit((prev) => prev.map((task) => (task.id === taskId ? { ...task, ...patch } : task)))
-    },
-    deleteTask: (taskId) => commit((prev) => prev.filter((task) => task.id !== taskId)),
-  }
-})
+  hydrate: async () => {
+    set({ status: "loading" })
+    try {
+      const tasks = await fetchAllTasks()
+      set({ tasks, status: "ready" })
+    } catch (error) {
+      console.error("[supabase] hydrate tasks failed:", error)
+      set({ tasks: [], status: "error" })
+    }
+  },
+
+  reset: () => set({ tasks: [], status: "idle" }),
+
+  addTask: (task) => {
+    set((state) => ({ tasks: [...state.tasks, task] }))
+    void dbInsertTask(task)
+  },
+
+  updateTask: (taskId, patch) => {
+    if (patch.done) {
+      const task = get().tasks.find((t) => t.id === taskId)
+      if (task && !task.done)
+        requestTimeLog({
+          target: { kind: "inbox", taskId },
+          title: task.title,
+          estimatedMinutes: task.estimatedMinutes,
+          actualMinutes: task.actualMinutes,
+        })
+    }
+    set((state) => ({
+      tasks: state.tasks.map((task) =>
+        task.id === taskId ? { ...task, ...patch } : task,
+      ),
+    }))
+    void dbUpdateTask(taskId, patch)
+  },
+
+  deleteTask: (taskId) => {
+    set((state) => ({
+      tasks: state.tasks.filter((task) => task.id !== taskId),
+    }))
+    void dbDeleteTask(taskId)
+  },
+}))
 
 export const useTasks = useTasksStore
 
@@ -98,7 +105,6 @@ export type AppTaskPatch = Partial<
   >
 >
 
-
 export function useAppTasks() {
   const tasks = useTasksStore((state) => state.tasks)
   const addTask = useTasksStore((state) => state.addTask)
@@ -109,7 +115,10 @@ export function useAppTasks() {
   const removeAttemptTask = useGoalsStore((state) => state.removeAttemptTask)
 
   const appTasks = useMemo<AppTask[]>(() => {
-    const standalone: AppTask[] = tasks.map((task) => ({ ...task, origin: { kind: "inbox" } }))
+    const standalone: AppTask[] = tasks.map((task) => ({
+      ...task,
+      origin: { kind: "inbox" },
+    }))
     const planned: AppTask[] = attempts.flatMap((attempt) =>
       attempt.status === "completed"
         ? []
@@ -131,7 +140,7 @@ export function useAppTasks() {
                 label: attempt.title,
                 emoji: attempt.icon,
               },
-            }))
+            })),
     )
     return [...standalone, ...planned]
   }, [tasks, attempts])
@@ -141,20 +150,29 @@ export function useAppTasks() {
       patch.done === undefined
         ? patch
         : { ...patch, completedAt: patch.done ? new Date() : undefined }
-    if (task.origin.kind === "attempt") updateAttemptTask(task.origin.attemptId, task.id, full)
+    if (task.origin.kind === "attempt")
+      updateAttemptTask(task.origin.attemptId, task.id, full)
     else updateTask(task.id, full)
   }
 
-  /** Soft delete — the task moves to Trash. */
-  const deleteAppTask = (task: AppTask) => updateAppTask(task, { deletedAt: new Date() })
+  const deleteAppTask = (task: AppTask) =>
+    updateAppTask(task, { deletedAt: new Date() })
 
-  const restoreAppTask = (task: AppTask) => updateAppTask(task, { deletedAt: undefined })
+  const restoreAppTask = (task: AppTask) =>
+    updateAppTask(task, { deletedAt: undefined })
 
-  /** Permanent delete — removes the task from its store entirely. */
   const destroyAppTask = (task: AppTask) => {
-    if (task.origin.kind === "attempt") removeAttemptTask(task.origin.attemptId, task.id)
+    if (task.origin.kind === "attempt")
+      removeAttemptTask(task.origin.attemptId, task.id)
     else deleteTask(task.id)
   }
 
-  return { tasks: appTasks, addTask, updateAppTask, deleteAppTask, restoreAppTask, destroyAppTask }
+  return {
+    tasks: appTasks,
+    addTask,
+    updateAppTask,
+    deleteAppTask,
+    restoreAppTask,
+    destroyAppTask,
+  }
 }

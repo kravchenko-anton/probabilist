@@ -1,4 +1,6 @@
+import { useGoalsStore } from "@/lib/goals-store"
 import { supabase } from "@/lib/supabase"
+import { useTasksStore } from "@/lib/tasks-store"
 import type { Session, User } from "@supabase/supabase-js"
 import {
 	createContext,
@@ -12,28 +14,60 @@ type AuthContextValue = {
 	session: Session | null
 	user: User | null
 	loading: boolean
+	dataReady: boolean
 	signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+async function hydrateStores() {
+	await Promise.all([
+		useTasksStore.getState().hydrate(),
+		useGoalsStore.getState().hydrate(),
+	])
+}
+
+function resetStores() {
+	useTasksStore.getState().reset()
+	useGoalsStore.getState().reset()
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [session, setSession] = useState<Session | null>(null)
 	const [loading, setLoading] = useState(true)
+	const [dataReady, setDataReady] = useState(false)
 
 	useEffect(() => {
 		let mounted = true
 
-		supabase.auth.getSession().then(({ data }) => {
-			if (!mounted) return
-			setSession(data.session)
-			setLoading(false)
-		})
-
 		const {
 			data: { subscription },
-		} = supabase.auth.onAuthStateChange((_event, nextSession) => {
+		} = supabase.auth.onAuthStateChange((event, nextSession) => {
+			if (!mounted) return
 			setSession(nextSession)
+
+			if (!nextSession) {
+				resetStores()
+				setDataReady(false)
+				setLoading(false)
+				return
+			}
+
+			// Defer Supabase data calls — awaiting inside this callback can deadlock
+			// the auth client lock.
+			if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
+				setDataReady(false)
+				setTimeout(() => {
+					void (async () => {
+						await hydrateStores()
+						if (!mounted) return
+						setDataReady(true)
+						setLoading(false)
+					})()
+				}, 0)
+				return
+			}
+
 			setLoading(false)
 		})
 
@@ -44,6 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}, [])
 
 	async function signOut() {
+		resetStores()
+		setDataReady(false)
 		await supabase.auth.signOut()
 	}
 
@@ -53,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				session,
 				user: session?.user ?? null,
 				loading,
+				dataReady,
 				signOut,
 			}}
 		>

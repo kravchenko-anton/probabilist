@@ -2,10 +2,10 @@ import { useAuth } from "@/lib/auth"
 import { Navigate, Outlet, useLocation } from "react-router-dom"
 
 export function RequireAuth() {
-	const { session, loading } = useAuth()
+	const { session, loading, dataReady } = useAuth()
 	const location = useLocation()
 
-	if (loading) {
+	if (loading || (session && !dataReady)) {
 		return (
 			<div className="flex h-dvh w-full items-center justify-center bg-background text-sm text-muted-foreground">
 				Loading…
