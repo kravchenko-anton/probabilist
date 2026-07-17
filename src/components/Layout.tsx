@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom"
 import { Sidebar } from "@/components/sidebar/Sidebar"
 import { BottomNav } from "@/components/BottomNav"
+import { TimeLogDialog } from "@/components/tasks/TimeLogDialog"
 
 export function Layout() {
   return (
@@ -10,6 +11,7 @@ export function Layout() {
         <Outlet />
       </main>
       <BottomNav />
+      <TimeLogDialog />
     </div>
   )
 }

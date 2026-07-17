@@ -66,6 +66,8 @@ export function DateView({ view, title, emoji }: DateViewProps) {
       onToggleDone={(done) => updateAppTask(selectedTask, { done })}
       onRename={(name) => updateAppTask(selectedTask, { title: name })}
       onSchedule={(date) => updateAppTask(selectedTask, { date })}
+      onEstimateChange={(estimatedMinutes) => updateAppTask(selectedTask, { estimatedMinutes })}
+      onActualChange={(actualMinutes) => updateAppTask(selectedTask, { actualMinutes })}
       onDescriptionChange={(description) => updateAppTask(selectedTask, { description })}
       onDelete={() => {
         deleteAppTask(selectedTask)

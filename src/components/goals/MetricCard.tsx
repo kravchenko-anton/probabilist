@@ -40,7 +40,7 @@ export function MetricCard({ metric, color }: MetricCardProps) {
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        Updates when you record attempt results.
+        Updates when you record experiment results.
       </p>
     </div>
   )

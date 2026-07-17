@@ -13,6 +13,10 @@ export interface TodoTask {
   completedAt?: Date
   /** Soft delete — the task lives in Trash until restored or destroyed. */
   deletedAt?: Date
+  /** How long the task is expected to take, in minutes. */
+  estimatedMinutes?: number
+  /** How long the task actually took, in minutes — logged after completion. */
+  actualMinutes?: number
 }
 
 function at(dayOffset: number, hours: number, minutes: number) {

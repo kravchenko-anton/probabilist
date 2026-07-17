@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { Link, NavLink, useLocation } from "react-router-dom"
 import { BrainCog, Check, ChevronRight, Plus, Settings } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Emoji } from "@/components/ui/emoji"
 import { goalProgress, isGoalDone } from "@/data/goals"
 import { activeTasks, tasksDoneCount } from "@/data/attempts"
@@ -108,18 +107,6 @@ export function Sidebar() {
 
       <div className="mt-2 flex flex-col gap-px pt-2">
         <NavLink
-          to="/logbook"
-          className={({ isActive }) =>
-            cn(
-              "flex h-6 items-center gap-2 rounded-md px-2 font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground",
-              isActive && "bg-white/10 text-foreground"
-            )
-          }
-        >
-          <Emoji value="📕" className="size-[15px]" />
-          <span className="flex-1 truncate text-left">Logbook</span>
-        </NavLink>
-        <NavLink
           to="/completed"
           className={({ isActive }) =>
             cn(
@@ -181,7 +168,7 @@ export function Sidebar() {
                   )}
                   <button
                     onClick={() => setAttemptFormGoalId(goal.id)}
-                    aria-label="New attempt"
+                    aria-label="New experiment"
                     className="hidden size-5 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground group-hover/row:flex"
                   >
                     <Plus size={14} />
@@ -217,23 +204,27 @@ export function Sidebar() {
                       )
                     })
                   ) : (
-                    <p className="py-1 pl-9 pr-2 text-xs text-muted-foreground/60">No attempts</p>
+                    <p className="py-1 pl-9 pr-2 text-xs text-muted-foreground/60">No experiments</p>
                   ))}
               </div>
             )
           })
         ) : (
-          <div className="flex h-32 w-full items-center rounded-md bg-accent">
-            <div className="flex flex-col gap-2 text-center">
-              <p className="mx-4 text-[10px] text-white">Organize and plan your work with goals</p>
-              <Button
-                onClick={() => setCreateGoalOpen(true)}
-                size="xs"
-                className="mx-auto ml-2 mr-2 w-[40%] border-white bg-transparent text-white hover:bg-white hover:text-black"
-              >
-                New goal
-              </Button>
+          <div className="flex flex-col items-center gap-2.5 rounded-lg border border-dashed border-white/10 bg-white/[0.03] px-3 py-5 text-center">
+            <Emoji value="🎯" className="size-7" />
+            <div className="flex flex-col gap-1">
+              <p className="text-xs font-medium text-foreground">Dream big, start small</p>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                Turn what matters to you into a goal and make it happen
+              </p>
             </div>
+            <button
+              onClick={() => setCreateGoalOpen(true)}
+              className="flex items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1 text-xs font-medium text-foreground hover:bg-white/15"
+            >
+              <Plus size={13} />
+              New goal
+            </button>
           </div>
         )}
       </div>

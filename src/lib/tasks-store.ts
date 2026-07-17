@@ -2,6 +2,7 @@ import { useMemo } from "react"
 import { create } from "zustand"
 import { initialTasks, type TodoTask } from "@/data/tasks"
 import { useGoalsStore } from "@/lib/goals-store"
+import { requestTimeLog } from "@/lib/time-log-store"
 
 const TASKS_KEY = "probabilist:tasks"
 
@@ -34,7 +35,7 @@ interface TasksState {
   deleteTask: (taskId: string) => void
 }
 
-export const useTasksStore = create<TasksState>()((set) => {
+export const useTasksStore = create<TasksState>()((set, get) => {
   const commit = (updater: (prev: TodoTask[]) => TodoTask[]) =>
     set((state) => {
       const tasks = updater(state.tasks)
@@ -45,8 +46,20 @@ export const useTasksStore = create<TasksState>()((set) => {
   return {
     tasks: loadTasks(),
     addTask: (task) => commit((prev) => [...prev, task]),
-    updateTask: (taskId, patch) =>
-      commit((prev) => prev.map((task) => (task.id === taskId ? { ...task, ...patch } : task))),
+    updateTask: (taskId, patch) => {
+      if (patch.done) {
+        const task = get().tasks.find((t) => t.id === taskId)
+        // Pops the "time it took" dialog when the task flips to done.
+        if (task && !task.done)
+          requestTimeLog({
+            target: { kind: "inbox", taskId },
+            title: task.title,
+            estimatedMinutes: task.estimatedMinutes,
+            actualMinutes: task.actualMinutes,
+          })
+      }
+      commit((prev) => prev.map((task) => (task.id === taskId ? { ...task, ...patch } : task)))
+    },
     deleteTask: (taskId) => commit((prev) => prev.filter((task) => task.id !== taskId)),
   }
 })
@@ -66,11 +79,23 @@ export interface AppTask {
   description?: string
   completedAt?: Date
   deletedAt?: Date
+  estimatedMinutes?: number
+  actualMinutes?: number
   origin: AppTaskOrigin
 }
 
 export type AppTaskPatch = Partial<
-  Pick<AppTask, "title" | "done" | "date" | "description" | "completedAt" | "deletedAt">
+  Pick<
+    AppTask,
+    | "title"
+    | "done"
+    | "date"
+    | "description"
+    | "completedAt"
+    | "deletedAt"
+    | "estimatedMinutes"
+    | "actualMinutes"
+  >
 >
 
 
@@ -98,6 +123,8 @@ export function useAppTasks() {
               description: task.description,
               completedAt: task.completedAt,
               deletedAt: task.deletedAt,
+              estimatedMinutes: task.estimatedMinutes,
+              actualMinutes: task.actualMinutes,
               origin: {
                 kind: "attempt" as const,
                 attemptId: attempt.id,

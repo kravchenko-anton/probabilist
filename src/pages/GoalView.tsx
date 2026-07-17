@@ -1,43 +1,43 @@
-import { useMemo, useState } from "react"
-import { useParams, useSearchParams } from "react-router-dom"
-import { Check, FileText, Pencil, Plus } from "lucide-react"
-import { useGoals } from "@/lib/goals-store"
-import { formatShortDate } from "@/lib/date"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Emoji } from "@/components/ui/emoji"
-import { goalProgress, isGoalDone } from "@/data/goals"
-import { activeTasks, type Attempt } from "@/data/attempts"
-import { useIsMobile, useMediaQuery } from "@/hooks/use-mobile"
-import { GoalProgressChart } from "@/components/goals/GoalProgressChart"
-import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
-import { AttemptFormDialog } from "@/components/goals/AttemptFormDialog"
-import { StartAttemptDialog } from "@/components/goals/StartAttemptDialog"
-import { RecordResultsDialog } from "@/components/goals/RecordResultsDialog"
-import { AttemptRow } from "@/components/goals/AttemptRow"
 import { AttemptDetailPane } from "@/components/goals/AttemptDetailPane"
+import { AttemptFormDialog } from "@/components/goals/AttemptFormDialog"
+import { AttemptRow } from "@/components/goals/AttemptRow"
+import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
+import { GoalProgressChart } from "@/components/goals/GoalProgressChart"
+import { LogCompletedExperimentDialog } from "@/components/goals/LogCompletedExperimentDialog"
+import { RecordResultsDialog } from "@/components/goals/RecordResultsDialog"
+import { StartAttemptDialog } from "@/components/goals/StartAttemptDialog"
 import { TaskSection } from "@/components/tasks/TaskSection"
 import { Button } from "@/components/ui/button"
+import { Emoji } from "@/components/ui/emoji"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import type { Attempt } from "@/data/attempts"
+import { isGoalDone } from "@/data/goals"
+import { useIsMobile, useMediaQuery } from "@/hooks/use-mobile"
+import { useGoals } from "@/lib/goals-store"
 import { cn } from "@/lib/utils"
+import { Check, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
+import { useMemo, useState } from "react"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 export function GoalView() {
   const { slug } = useParams<{ slug: string }>()
-  const { goals, attempts, toggleAttemptTask } = useGoals()
+  const { goals, attempts, deleteGoal } = useGoals()
   const goal = goals.find((g) => g.slug === slug)
+  const navigate = useNavigate()
 
   const [editOpen, setEditOpen] = useState(false)
   const [attemptFormOpen, setAttemptFormOpen] = useState(false)
+  const [logCompletedOpen, setLogCompletedOpen] = useState(false)
   const [editingAttemptId, setEditingAttemptId] = useState<string>()
   const [startAttemptId, setStartAttemptId] = useState<string>()
   const [resultsAttemptId, setResultsAttemptId] = useState<string>()
   const [detailOpen, setDetailOpen] = useState(false)
-  const [expandedAttempts, setExpandedAttempts] = useState<Record<string, boolean>>({})
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const isDesktop = useMediaQuery("(min-width: 1024px)")
   const isMobile = useIsMobile()
 
-  // Selection lives in the URL so the sidebar tree can highlight the active
-  // attempt/task and deep links keep working.
   const [searchParams, setSearchParams] = useSearchParams()
   const attemptParam = searchParams.get("attempt")
   const taskParam = searchParams.get("task")
@@ -62,22 +62,26 @@ export function GoalView() {
     [attempts, goal]
   )
 
-  const sections = useMemo(() => {
+  const openExperiments = useMemo(() => {
     const active = goalAttempts
       .filter((a) => a.status === "active")
       .sort((a, b) => (a.startedAt?.getTime() ?? 0) - (b.startedAt?.getTime() ?? 0))
     const planned = goalAttempts
       .filter((a) => a.status === "planned")
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-    const completed = goalAttempts
-      .filter((a) => a.status === "completed")
-      .sort((a, b) => (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0))
     return [
       { kind: "active", title: "In progress", attempts: active },
       { kind: "planned", title: "Planned", attempts: planned },
-      { kind: "completed", title: "Completed", attempts: completed },
     ].filter((section) => section.attempts.length > 0)
   }, [goalAttempts])
+
+  const completedExperiments = useMemo(
+    () =>
+      goalAttempts
+        .filter((a) => a.status === "completed")
+        .sort((a, b) => (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0)),
+    [goalAttempts]
+  )
 
   if (!goal) {
     return (
@@ -87,7 +91,10 @@ export function GoalView() {
     )
   }
 
-  const orderedAttempts = sections.flatMap((section) => section.attempts)
+  const orderedAttempts = [
+    ...openExperiments.flatMap((section) => section.attempts),
+    ...completedExperiments,
+  ]
   const selectedAttempt =
     orderedAttempts.find((attempt) => attempt.id === attemptParam) ?? orderedAttempts[0]
 
@@ -95,8 +102,8 @@ export function GoalView() {
   const attemptToStart = goalAttempts.find((a) => a.id === startAttemptId)
   const attemptToRecord = goalAttempts.find((a) => a.id === resultsAttemptId)
 
-  const progress = goalProgress(goal)
   const goalDone = isGoalDone(goal)
+  const openCount = openExperiments.reduce((sum, section) => sum + section.attempts.length, 0)
 
   function openCreateAttempt() {
     setEditingAttemptId(undefined)
@@ -128,133 +135,151 @@ export function GoalView() {
           <div className="flex items-center gap-3">
             <Emoji value={goal.emoji} className="size-6" />
             <h1 className="text-xl font-medium text-foreground">{goal.title}</h1>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setEditOpen(true)}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <Pencil size={13} />
-            </Button>
-            <span
-              className={cn(
-                "ml-auto text-lg font-medium",
-                goalDone ? "text-emerald-400" : "text-foreground"
-              )}
-            >
-              {Math.round(progress)}%
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+              <PopoverTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-foreground"
+                  />
+                }
+              >
+                <MoreHorizontal size={15} />
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-40 p-1">
+                <button
+                  onClick={() => {
+                    setMenuOpen(false)
+                    setEditOpen(true)
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-white/5"
+                >
+                  <Pencil size={13} />
+                  Edit goal
+                </button>
+                <button
+                  onClick={() => {
+                    deleteGoal(goal.id)
+                    navigate("/goals", { replace: true })
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-red-400 hover:bg-white/5"
+                >
+                  <Trash2 size={13} />
+                  Delete goal
+                </button>
+              </PopoverContent>
+            </Popover>
             {goalDone && (
-              <span className="flex items-center gap-1.5 rounded-md bg-emerald-400/10 px-2 py-1 text-emerald-400">
+              <span className="ml-auto flex items-center gap-1.5 rounded-md bg-emerald-400/10 px-2 py-1 text-xs text-emerald-400">
                 <Check size={12} />
                 Goal achieved
               </span>
             )}
-            <span className="rounded-md bg-white/5 px-2 py-1">{goal.timePeriodLabel}</span>
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+        <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           <GoalProgressChart goal={goal} attempts={goalAttempts} />
 
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-foreground">Attempts</h2>
-            </div>
-
-            <button
-              onClick={openCreateAttempt}
-              className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-muted-foreground hover:bg-white/5"
-            >
-              <Plus size={15} />
-              <span>New attempt</span>
-            </button>
-
-            <div className="-mx-4 flex flex-col sm:-mx-6">
-              {sections.map((section) => (
-                <TaskSection
-                  key={section.kind}
-                  title={section.title}
-                  count={section.attempts.length}
+              <h2 className="text-sm font-medium text-foreground">Experiments</h2>
+              {openCount > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={openCreateAttempt}
+                  aria-label="New experiment"
+                  className="text-muted-foreground hover:text-foreground active:scale-[0.97]"
                 >
-                  {section.attempts.map((attempt) => {
-                    const isSelected = attempt.id === selectedAttempt?.id
-                    const isExpanded = expandedAttempts[attempt.id] ?? isSelected
-                    return (
-                      <div key={attempt.id} className="flex flex-col">
-                        <AttemptRow
-                          attempt={attempt}
-                          selected={isSelected}
-                          expanded={isExpanded}
-                          onToggleExpand={() =>
-                            setExpandedAttempts((prev) => ({
-                              ...prev,
-                              [attempt.id]: !(prev[attempt.id] ?? isSelected),
-                            }))
-                          }
-                          onSelect={() => {
-                            selectAttempt(attempt.id)
-                            if (!isDesktop) setDetailOpen(true)
-                          }}
-                        />
-                        {isExpanded &&
-                          activeTasks(attempt).map((task) => {
-                            const taskActive = isSelected && taskParam === task.id
-                            return (
-                              <div
-                                key={task.id}
-                                onClick={() => {
-                                  setSearchParams(
-                                    { attempt: attempt.id, task: task.id },
-                                    { replace: true }
-                                  )
-                                  if (!isDesktop) setDetailOpen(true)
-                                }}
-                                className={cn(
-                                  "flex cursor-pointer items-center gap-2.5 py-1.5 pl-[42px] pr-4 text-sm hover:bg-white/5",
-                                  taskActive && "bg-white/5"
-                                )}
-                              >
-                                <Checkbox
-                                  checked={task.done}
-                                  disabled={attempt.status === "completed"}
-                                  onCheckedChange={() => toggleAttemptTask(attempt.id, task.id)}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                                <span
-                                  className={cn(
-                                    "min-w-0 flex-1 truncate text-foreground",
-                                    task.done && "text-muted-foreground line-through"
-                                  )}
-                                >
-                                  {task.title}
-                                </span>
-                                {task.description && (
-                                  <FileText size={12} className="shrink-0 text-muted-foreground" />
-                                )}
-                                {task.date && (
-                                  <span className="shrink-0 text-xs text-muted-foreground">
-                                    {formatShortDate(task.date)}
-                                  </span>
-                                )}
-                              </div>
-                            )
-                          })}
-                      </div>
-                    )
-                  })}
-                </TaskSection>
-              ))}
+                  <Plus size={15} />
+                </Button>
+              )}
             </div>
 
-            {goalAttempts.length === 0 && (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                No attempts yet. An attempt is a to-do list of actions that should move your
-                metrics — create one to start making progress.
-              </p>
+            {openCount === 0 ? (
+              <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  An experiment is a small bet — a list of actions that should move your metrics.
+                </p>
+                <Button
+                  type="button"
+                  onClick={openCreateAttempt}
+                  className="active:scale-[0.97]"
+                >
+                  <Plus size={15} />
+                  New experiment
+                </Button>
+              </div>
+            ) : (
+              <div className="-mx-4 flex flex-col sm:-mx-6">
+                {openExperiments.map((section) => (
+                  <TaskSection
+                    key={section.kind}
+                    title={section.title}
+                    count={section.attempts.length}
+                  >
+                    {section.attempts.map((attempt) => (
+                      <AttemptRow
+                        key={attempt.id}
+                        attempt={attempt}
+                        selected={attempt.id === selectedAttempt?.id}
+                        onSelect={() => {
+                          selectAttempt(attempt.id)
+                          if (!isDesktop) setDetailOpen(true)
+                        }}
+                      />
+                    ))}
+                  </TaskSection>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-foreground">Completed experiments</h2>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setLogCompletedOpen(true)}
+                aria-label="Log completed experiment"
+                className="text-muted-foreground hover:text-foreground active:scale-[0.97]"
+              >
+                <Plus size={15} />
+              </Button>
+            </div>
+
+            {completedExperiments.length === 0 ? (
+              <button
+                type="button"
+                onClick={() => setLogCompletedOpen(true)}
+                className="flex flex-col items-start gap-1 rounded-xl border border-dashed border-border px-4 py-5 text-left transition-colors hover:bg-white/[0.03]"
+              >
+                <span className="text-sm font-medium text-foreground">
+                  Already started a journey?
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  Log a completed experiment — actions, date, and results in one place.
+                </span>
+              </button>
+            ) : (
+              <div className="-mx-4 flex flex-col sm:-mx-6">
+                {completedExperiments.map((attempt) => (
+                  <AttemptRow
+                    key={attempt.id}
+                    attempt={attempt}
+                    selected={attempt.id === selectedAttempt?.id}
+                    onSelect={() => {
+                      selectAttempt(attempt.id)
+                      if (!isDesktop) setDetailOpen(true)
+                    }}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -263,7 +288,9 @@ export function GoalView() {
       <div className="hidden flex-1 lg:block">
         {detailPane ?? (
           <div className="flex h-full items-center justify-center px-8 text-center text-sm text-muted-foreground">
-            Select an attempt to see its tasks, predictions and results.
+            {goalAttempts.length === 0
+              ? "Create an experiment to see its tasks, predictions and results."
+              : "Select an experiment to see its tasks, predictions and results."}
           </div>
         )}
       </div>
@@ -278,7 +305,7 @@ export function GoalView() {
           {isMobile && (
             <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-white/15" />
           )}
-          <SheetTitle className="sr-only">Attempt details</SheetTitle>
+          <SheetTitle className="sr-only">Experiment details</SheetTitle>
           <div className="min-h-0 flex-1">{detailPane}</div>
         </SheetContent>
       </Sheet>
@@ -293,6 +320,13 @@ export function GoalView() {
         }}
         goalId={goal.id}
         attempt={editingAttempt}
+        onCreated={(attempt) => selectAttempt(attempt.id)}
+      />
+
+      <LogCompletedExperimentDialog
+        open={logCompletedOpen}
+        onOpenChange={setLogCompletedOpen}
+        goal={goal}
         onCreated={(attempt) => selectAttempt(attempt.id)}
       />
 

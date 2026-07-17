@@ -13,6 +13,10 @@ export interface AttemptTask {
   completedAt?: Date
   /** Soft delete — the task lives in Trash until restored or destroyed. */
   deletedAt?: Date
+  /** How long the task is expected to take, in minutes. */
+  estimatedMinutes?: number
+  /** How long the task actually took, in minutes — logged after completion. */
+  actualMinutes?: number
 }
 
 export interface MetricPrediction {
@@ -29,6 +33,12 @@ export interface AttemptResult {
 
 export type AttemptStatus = "planned" | "active" | "completed"
 
+export interface Retrospective {
+  happened?: string
+  learned?: string
+  futureNote?: string
+}
+
 export interface Attempt {
   id: string
   goalId: string
@@ -42,7 +52,7 @@ export interface Attempt {
   completedAt?: Date
   predictions: MetricPrediction[]
   results: AttemptResult[]
-  retrospective?: string
+  retrospective?: Retrospective
 }
 
 /** Tasks that are not soft-deleted — the only ones counted and rendered. */
@@ -92,6 +102,8 @@ export type OutcomeBand = "below-worst" | "risky" | "acceptable" | "best"
 export interface OutcomeInfo {
   band: OutcomeBand
   label: string
+  /** Compact one-word verdict for dense list rows. */
+  short: string
   className: string
 }
 
@@ -99,21 +111,25 @@ const OUTCOME_INFO: Record<OutcomeBand, OutcomeInfo> = {
   "below-worst": {
     band: "below-worst",
     label: "Below worst case",
+    short: "Below worst",
     className: "text-red-400",
   },
   risky: {
     band: "risky",
-    label: "Between worst & acceptable",
+    label: "Short of acceptable",
+    short: "Below target",
     className: "text-amber-400",
   },
   acceptable: {
     band: "acceptable",
     label: "Acceptable",
+    short: "Good",
     className: "text-lime-300",
   },
   best: {
     band: "best",
     label: "Best case or beyond",
+    short: "Best",
     className: "text-emerald-400",
   },
 }

@@ -29,6 +29,7 @@
     "emoji-datasource-apple": "^16.0.0",
     "lexical": "^0.47.0",
     "lucide-react": "^1.24.0",
+    "motion": "^12.42.2",
     "react": "^19.2.7",
     "react-day-picker": "^10.0.1",
     "react-dom": "^19.2.7",

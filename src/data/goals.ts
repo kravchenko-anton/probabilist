@@ -1,3 +1,10 @@
+/**
+ * How experiment results feed the goal value:
+ * - "sum"  — every experiment's result stacks onto the total (e.g. views across videos)
+ * - "max"  — the goal keeps the best single experiment (e.g. record views from one video)
+ */
+export type MetricAggregation = "sum" | "max"
+
 export interface GoalMetric {
   id: string
   name: string
@@ -5,6 +12,12 @@ export interface GoalMetric {
   startValue: number
   targetValue: number
   currentValue: number
+  aggregation?: MetricAggregation
+}
+
+/** Metrics saved before aggregation existed behave like "max" (closest to the old replace). */
+export function metricAggregation(metric: GoalMetric): MetricAggregation {
+  return metric.aggregation ?? "max"
 }
 
 export interface Goal {

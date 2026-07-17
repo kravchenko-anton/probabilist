@@ -33,13 +33,13 @@ export function TaskRow({
         selected && "bg-white/5"
       )}
     >
-      <Checkbox
-        checked={done}
-        onCheckedChange={(checked) => onToggleDone(!!checked)}
-        onClick={(e) => e.stopPropagation()}
-      />
+      {/* Base UI Checkbox re-dispatches the click from a hidden sibling input,
+          so propagation must be stopped on a wrapper, not the checkbox itself. */}
+      <span className="flex shrink-0" onClick={(e) => e.stopPropagation()}>
+        <Checkbox checked={done} onCheckedChange={(checked) => onToggleDone(!!checked)} />
+      </span>
       {emoji && <span className="text-[13px] leading-none">{emoji}</span>}
-      <span className={cn("flex-1 truncate", done && "text-muted-foreground line-through")}>
+      <span className={cn("flex-1 truncate", done && "text-muted-foreground")}>
         {title}
       </span>
       {hasNote && <FileText size={13} className="text-muted-foreground" />}

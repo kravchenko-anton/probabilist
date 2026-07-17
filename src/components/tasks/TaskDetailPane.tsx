@@ -1,9 +1,10 @@
 import { useState } from "react"
-import { ArrowLeft, Flag, Trash2 } from "lucide-react"
+import { ArrowLeft, Trash2 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Emoji } from "@/components/ui/emoji"
 import { RichTextEditor } from "@/components/editor/RichTextEditor"
 import { SchedulePopover } from "@/components/tasks/SchedulePopover"
+import { DurationPopover } from "@/components/tasks/DurationPopover"
 import { cn } from "@/lib/utils"
 
 export interface EditableTask {
@@ -13,6 +14,8 @@ export interface EditableTask {
   done: boolean
   date?: Date
   description?: string
+  estimatedMinutes?: number
+  actualMinutes?: number
 }
 
 interface TaskDetailPaneProps {
@@ -23,6 +26,8 @@ interface TaskDetailPaneProps {
   onToggleDone: (done: boolean) => void
   onRename: (title: string) => void
   onSchedule: (date?: Date) => void
+  onEstimateChange: (minutes?: number) => void
+  onActualChange: (minutes?: number) => void
   onDescriptionChange: (description?: string) => void
   /** Moves the task to Trash. */
   onDelete?: () => void
@@ -38,6 +43,8 @@ export function TaskDetailPane({
   onToggleDone,
   onRename,
   onSchedule,
+  onEstimateChange,
+  onActualChange,
   onDescriptionChange,
   onDelete,
 }: TaskDetailPaneProps) {
@@ -70,8 +77,22 @@ export function TaskDetailPane({
           onCheckedChange={(checked) => onToggleDone(!!checked)}
         />
         <SchedulePopover date={task.date} done={task.done} onSchedule={onSchedule} placeholder="Pick a date" />
+        <DurationPopover
+          minutes={task.estimatedMinutes}
+          onChange={onEstimateChange}
+          placeholder="Estimate"
+          prefix="~"
+        />
+        {task.done && (
+          <DurationPopover
+            minutes={task.actualMinutes}
+            onChange={onActualChange}
+            placeholder="Time it took"
+            prefix="took "
+            icon="timer"
+          />
+        )}
         <div className="flex-1" />
-        <Flag size={15} className="text-muted-foreground" />
         {onDelete && (
           <button
             type="button"
@@ -100,7 +121,7 @@ export function TaskDetailPane({
           placeholder="Task title"
           className={cn(
             "w-full flex-1 bg-transparent text-lg font-medium text-foreground outline-none placeholder:text-muted-foreground",
-            task.done && "text-muted-foreground line-through"
+            task.done && "text-muted-foreground"
           )}
         />
       </div>

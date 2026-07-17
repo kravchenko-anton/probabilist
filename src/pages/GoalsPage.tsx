@@ -1,12 +1,12 @@
-import { useState } from "react"
-import { Link } from "react-router-dom"
-import { Check, Plus, Target } from "lucide-react"
-import { useGoals } from "@/lib/goals-store"
-import { goalProgress, isGoalDone } from "@/data/goals"
 import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
 import { Button } from "@/components/ui/button"
 import { Emoji } from "@/components/ui/emoji"
+import { goalProgress, isGoalDone } from "@/data/goals"
+import { useGoals } from "@/lib/goals-store"
 import { cn } from "@/lib/utils"
+import { Check, Plus, Target } from "lucide-react"
+import { useState } from "react"
+import { Link } from "react-router-dom"
 
 export function GoalsPage() {
   const { goals } = useGoals()
@@ -26,7 +26,7 @@ export function GoalsPage() {
       <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
         {goals.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            No goals yet. Create one to start tracking metrics through attempts.
+            No goals yet. Create one to start tracking metrics through experiments.
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">

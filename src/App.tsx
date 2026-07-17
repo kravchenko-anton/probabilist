@@ -1,14 +1,13 @@
-import './App.css'
-import { Navigate, Route, Routes } from "react-router-dom"
 import { Layout } from "@/components/Layout"
+import { CompletedPage } from "@/pages/CompletedPage"
 import { DateView } from "@/pages/DateView"
 import { GoalView } from "@/pages/GoalView"
 import { GoalsPage } from "@/pages/GoalsPage"
-import { CompletedPage } from "@/pages/CompletedPage"
 import { TrashPage } from "@/pages/TrashPage"
+import { Navigate, Route, Routes } from "react-router-dom"
+import './App.css'
 
 function App() {
-  
   return (
     <Routes>
       <Route element={<Layout />}>

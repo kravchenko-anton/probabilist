@@ -1,4 +1,4 @@
-import { Check, ChevronRight } from "lucide-react"
+import { Check } from "lucide-react"
 import { Emoji } from "@/components/ui/emoji"
 import { cn } from "@/lib/utils"
 import {
@@ -14,8 +14,6 @@ import { formatShortDate } from "@/lib/date"
 interface AttemptRowProps {
   attempt: Attempt
   selected?: boolean
-  expanded?: boolean
-  onToggleExpand?: () => void
   onSelect: () => void
 }
 
@@ -67,13 +65,7 @@ function Subtitle({ attempt }: { attempt: Attempt }) {
   )
 }
 
-export function AttemptRow({
-  attempt,
-  selected,
-  expanded,
-  onToggleExpand,
-  onSelect,
-}: AttemptRowProps) {
+export function AttemptRow({ attempt, selected, onSelect }: AttemptRowProps) {
   return (
     <div
       onClick={onSelect}
@@ -90,19 +82,6 @@ export function AttemptRow({
         <span className="truncate text-sm font-medium text-foreground">{attempt.title}</span>
         <Subtitle attempt={attempt} />
       </span>
-      {onToggleExpand && (
-        <button
-          type="button"
-          aria-label={expanded ? "Hide tasks" : "Show tasks"}
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleExpand()
-          }}
-          className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
-        >
-          <ChevronRight size={14} className={cn("transition-transform", expanded && "rotate-90")} />
-        </button>
-      )}
     </div>
   )
 }
