@@ -1,3 +1,4 @@
+import { RichTextEditor } from "@/components/editor/RichTextEditor"
 import { DurationPopover } from "@/components/tasks/DurationPopover"
 import { SchedulePopover } from "@/components/tasks/SchedulePopover"
 import { TaskDetailPane } from "@/components/tasks/TaskDetailPane"
@@ -13,6 +14,7 @@ import {
   deadlineMissDays,
   formatMissDays,
   isOverdue,
+  isTinyAttempt,
   metricDirection,
   tasksDoneCount,
   type Attempt,
@@ -24,29 +26,40 @@ import { formatDuration, formatShortDate, formatTimeSince } from "@/lib/date"
 import { useGoals } from "@/lib/goals-store"
 import { metricColor } from "@/lib/metric-colors"
 import { cn } from "@/lib/utils"
-import { ChevronRight, FileText, Pencil, Play, Plus, Trash2 } from "lucide-react"
+import {
+  ChevronRight,
+  FileText,
+  Pencil,
+  Play,
+  Plus,
+  Trash2,
+} from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 
 interface AttemptDetailPaneProps {
-  goal: Goal
-  attempt: Attempt
+  goal: Goal;
+  attempt: Attempt;
   /** Task drilled into within this pane; controlled by the parent (URL). */
-  openTaskId?: string
-  onOpenTask: (taskId?: string) => void
-  onEdit: () => void
-  onStart: () => void
-  onRecordResults: () => void
-  onDeleted?: () => void
+  openTaskId?: string;
+  onOpenTask: (taskId?: string) => void;
+  onEdit: () => void;
+  onStart: () => void;
+  onRecordResults: () => void;
+  onDeleted?: () => void;
 }
 
 const STATUS_LABEL: Record<Attempt["status"], string> = {
   planned: "Planned",
   active: "In progress",
   completed: "Completed",
-}
+};
 
-const RETRO_FIELDS: { key: keyof Retrospective; label: string; placeholder: string }[] = [
+const RETRO_FIELDS: {
+  key: keyof Retrospective;
+  label: string;
+  placeholder: string;
+}[] = [
   {
     key: "happened",
     label: "What happened?",
@@ -55,25 +68,26 @@ const RETRO_FIELDS: { key: keyof Retrospective; label: string; placeholder: stri
   {
     key: "learned",
     label: "What did you learn & will try next time?",
-    placeholder: "Insights from this try, and what you'll change on the next one",
+    placeholder:
+      "Insights from this try, and what you'll change on the next one",
   },
   {
     key: "futureNote",
     label: "One line for future you",
     placeholder: "The one thing future you should remember",
   },
-]
+];
 
 function NoteEditor({
   note,
   onSave,
   placeholder,
 }: {
-  note?: string
-  onSave: (note: string) => void
-  placeholder: string
+  note?: string;
+  onSave: (note: string) => void;
+  placeholder: string;
 }) {
-  const [draft, setDraft] = useState(note ?? "")
+  const [draft, setDraft] = useState(note ?? "");
   return (
     <Textarea
       value={draft}
@@ -82,12 +96,12 @@ function NoteEditor({
       placeholder={placeholder}
       className="min-h-16 text-xs"
     />
-  )
+  );
 }
 
 /** Quiet inline input at the end of the task list — Enter adds and keeps focus for rapid entry. */
 function AddTaskRow({ onAdd }: { onAdd: (title: string) => void }) {
-  const [value, setValue] = useState("")
+  const [value, setValue] = useState("");
   return (
     <label className="flex cursor-text items-center gap-2.5 rounded-md px-1.5 py-1.5 transition-colors focus-within:bg-white/[0.04]">
       <Plus size={15} className="ml-px shrink-0 text-muted-foreground" />
@@ -96,24 +110,29 @@ function AddTaskRow({ onAdd }: { onAdd: (title: string) => void }) {
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
-            const title = value.trim()
-            if (!title) return
-            onAdd(title)
-            setValue("")
+            const title = value.trim();
+            if (!title) return;
+            onAdd(title);
+            setValue("");
           }
           if (e.key === "Escape") {
-            setValue("")
-            e.currentTarget.blur()
+            setValue("");
+            e.currentTarget.blur();
           }
         }}
         placeholder="Add task"
         className="h-5 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/70"
       />
     </label>
-  )
+  );
 }
 
-const METER_SPRING = { type: "spring", stiffness: 260, damping: 30, mass: 0.9 } as const
+const METER_SPRING = {
+  type: "spring",
+  stiffness: 260,
+  damping: 30,
+  mass: 0.9,
+} as const;
 
 /**
  * One metric on a worst→best scale: a slim track with a tick at "acceptable"
@@ -125,29 +144,40 @@ function OutcomeMeter({
   prediction,
   result,
 }: {
-  metric: GoalMetric
-  color: string
-  prediction: MetricPrediction
-  result?: number
+  metric: GoalMetric;
+  color: string;
+  prediction: MetricPrediction;
+  result?: number;
 }) {
   const outcome =
-    result !== undefined ? classifyOutcome(prediction, result, metricDirection(metric)) : null
-  const span = prediction.best - prediction.worst
+    result !== undefined
+      ? classifyOutcome(prediction, result, metricDirection(metric))
+      : null;
+  const span = prediction.best - prediction.worst;
   const posOf = (value: number) =>
-    span === 0 ? 0.5 : Math.min(1, Math.max(0, (value - prediction.worst) / span))
-  const acceptablePos = posOf(prediction.acceptable)
-  const resultPos = result !== undefined ? posOf(result) : null
-  const unit = metric.unit ?? ""
+    span === 0
+      ? 0.5
+      : Math.min(1, Math.max(0, (value - prediction.worst) / span));
+  const acceptablePos = posOf(prediction.acceptable);
+  const resultPos = result !== undefined ? posOf(result) : null;
+  const unit = metric.unit ?? "";
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline gap-2.5 text-xs">
-        <span className="size-2 shrink-0 self-center rounded-full" style={{ background: color }} />
-        <span className="min-w-0 flex-1 truncate text-foreground">{metric.name}</span>
+        <span
+          className="size-2 shrink-0 self-center rounded-full"
+          style={{ background: color }}
+        />
+        <span className="min-w-0 flex-1 truncate text-foreground">
+          {metric.name}
+        </span>
         {result !== undefined && (
           <>
             {outcome && (
-              <span className={cn("text-[11px]", outcome.className)}>{outcome.short}</span>
+              <span className={cn("text-[11px]", outcome.className)}>
+                {outcome.short}
+              </span>
             )}
             <span className="text-sm font-medium text-foreground tabular-nums">
               {formatMetricValue(result)}
@@ -189,7 +219,9 @@ function OutcomeMeter({
           {/* Clamped away from the edges so it never collides with worst/best. */}
           <span
             className="absolute -translate-x-1/2"
-            style={{ left: `${Math.min(88, Math.max(12, acceptablePos * 100))}%` }}
+            style={{
+              left: `${Math.min(88, Math.max(12, acceptablePos * 100))}%`,
+            }}
           >
             {formatMetricValue(prediction.acceptable)}
             {unit}
@@ -201,7 +233,7 @@ function OutcomeMeter({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export function AttemptDetailPane({
@@ -214,23 +246,30 @@ export function AttemptDetailPane({
   onRecordResults,
   onDeleted,
 }: AttemptDetailPaneProps) {
-  const { addAttemptTask, toggleAttemptTask, updateAttemptTask, updateAttempt, deleteAttempt } =
-    useGoals()
+  const {
+    addAttemptTask,
+    toggleAttemptTask,
+    updateAttemptTask,
+    updateAttempt,
+    deleteAttempt,
+  } = useGoals();
 
-  const locked = attempt.status === "completed"
-  const doneCount = tasksDoneCount(attempt)
-  const readyForResults = allTasksDone(attempt)
-  const miss = locked ? deadlineMissDays(attempt) : null
-  const overdue = isOverdue(attempt)
+  const locked = attempt.status === "completed";
+  const tiny = isTinyAttempt(attempt);
+  const doneCount = tasksDoneCount(attempt);
+  // Tiny experiments have no task list to gate on — results can come anytime.
+  const readyForResults = tiny || allTasksDone(attempt);
+  const miss = locked ? deadlineMissDays(attempt) : null;
+  const overdue = isOverdue(attempt);
 
-  const tasks = activeTasks(attempt)
-  const openTask = tasks.find((task) => task.id === openTaskId)
+  const tasks = activeTasks(attempt);
+  const openTask = tasks.find((task) => task.id === openTaskId);
 
   const saveRetrospective = (key: keyof Retrospective, text: string) => {
-    const next = { ...attempt.retrospective, [key]: text || undefined }
-    const empty = !next.happened && !next.learned && !next.futureNote
-    updateAttempt({ ...attempt, retrospective: empty ? undefined : next })
-  }
+    const next = { ...attempt.retrospective, [key]: text || undefined };
+    const empty = !next.happened && !next.learned && !next.futureNote;
+    updateAttempt({ ...attempt, retrospective: empty ? undefined : next });
+  };
   if (openTask) {
     return (
       <TaskDetailPane
@@ -240,10 +279,14 @@ export function AttemptDetailPane({
         footerLabel={attempt.title}
         onBack={() => onOpenTask(undefined)}
         onToggleDone={() => {
-          if (!locked) toggleAttemptTask(attempt.id, openTask.id)
+          if (!locked) toggleAttemptTask(attempt.id, openTask.id);
         }}
-        onRename={(title) => updateAttemptTask(attempt.id, openTask.id, { title })}
-        onSchedule={(date) => updateAttemptTask(attempt.id, openTask.id, { date })}
+        onRename={(title) =>
+          updateAttemptTask(attempt.id, openTask.id, { title })
+        }
+        onSchedule={(date) =>
+          updateAttemptTask(attempt.id, openTask.id, { date })
+        }
         onEstimateChange={(estimatedMinutes) =>
           updateAttemptTask(attempt.id, openTask.id, { estimatedMinutes })
         }
@@ -254,11 +297,11 @@ export function AttemptDetailPane({
           updateAttemptTask(attempt.id, openTask.id, { description })
         }
         onDelete={() => {
-          updateAttemptTask(attempt.id, openTask.id, { deletedAt: new Date() })
-          onOpenTask(undefined)
+          updateAttemptTask(attempt.id, openTask.id, { deletedAt: new Date() });
+          onOpenTask(undefined);
         }}
       />
-    )
+    );
   }
 
   const dateLabel =
@@ -266,20 +309,23 @@ export function AttemptDetailPane({
       ? `Completed ${formatShortDate(attempt.completedAt)}`
       : attempt.status === "active" && attempt.startedAt
         ? `Started ${formatTimeSince(attempt.startedAt)}`
-        : `Created ${formatShortDate(attempt.createdAt)}`
+        : `Created ${formatShortDate(attempt.createdAt)}`;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <div className="flex items-start gap-2 px-5 pt-4 pb-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h3 className="flex items-center gap-2 text-lg font-medium text-foreground">
-            {attempt.icon && <Emoji value={attempt.icon} className="size-[18px]" />}
+            {attempt.icon && (
+              <Emoji value={attempt.icon} className="size-[18px]" />
+            )}
             <span className="truncate">{attempt.title}</span>
           </h3>
           <p className="text-xs text-muted-foreground">
             <span className={cn(attempt.status === "active" && "text-primary")}>
               {STATUS_LABEL[attempt.status]}
             </span>
+            {tiny && " · Tiny experiment"}
             {" · "}
             {dateLabel}
             {attempt.deadline && (
@@ -293,7 +339,9 @@ export function AttemptDetailPane({
             {miss !== null && (
               <>
                 {" · "}
-                <span className={miss > 0 ? "text-red-400" : "text-emerald-400"}>
+                <span
+                  className={miss > 0 ? "text-red-400" : "text-emerald-400"}
+                >
                   {formatMissDays(miss)}
                 </span>
               </>
@@ -314,8 +362,8 @@ export function AttemptDetailPane({
           variant="ghost"
           size="icon-sm"
           onClick={() => {
-            deleteAttempt(attempt.id)
-            onDeleted?.()
+            deleteAttempt(attempt.id);
+            onDeleted?.();
           }}
           className="text-muted-foreground hover:text-foreground"
         >
@@ -323,75 +371,111 @@ export function AttemptDetailPane({
         </Button>
       </div>
 
-      <div className="flex flex-col gap-0.5 px-5 py-3">
-        <div className="flex items-center gap-2 pb-1 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Tasks</span>
-          <span>
-            {doneCount}/{tasks.length}
+      {tiny && (
+        <div className="flex min-h-40 flex-1 flex-col py-3">
+          <span className="px-5 pb-1 text-xs font-medium text-foreground">
+            Description
           </span>
+          {/* The section stretches to the pane bottom so the editor toolbar sits there. */}
+          <RichTextEditor
+            key={attempt.id}
+            value={attempt.description}
+            onChange={(description) =>
+              updateAttempt({ ...attempt, description: description || undefined })
+            }
+            placeholder="What are you trying, and why? Plans, details, links…"
+          />
         </div>
-        {tasks.map((task) => (
-          <div
-            key={task.id}
-            onClick={() => onOpenTask(task.id)}
-            className="group flex cursor-pointer items-center gap-2.5 rounded-md px-1.5 py-1.5 hover:bg-white/5"
-          >
-            {/* Base UI Checkbox re-dispatches the click from a hidden sibling input,
-                so propagation must be stopped on a wrapper, not the checkbox itself. */}
-            <span className="flex shrink-0" onClick={(e) => e.stopPropagation()}>
-              <Checkbox
-                checked={task.done}
-                disabled={locked}
-                onCheckedChange={() => toggleAttemptTask(attempt.id, task.id)}
-              />
+      )}
+
+      {!tiny && (
+        <div className="flex flex-col gap-0.5 px-5 py-3">
+          <div className="flex items-center gap-2 pb-1 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Tasks</span>
+            <span>
+              {doneCount}/{tasks.length}
             </span>
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate text-sm text-foreground",
-                task.done && "text-muted-foreground"
-              )}
+          </div>
+          {tasks.map((task) => (
+            <div
+              key={task.id}
+              onClick={() => onOpenTask(task.id)}
+              className="group flex cursor-pointer items-center gap-2.5 rounded-md px-1.5 py-1.5 hover:bg-white/5"
             >
-              {task.title}
-            </span>
-            {task.description && (
-              <FileText size={12} className="shrink-0 text-muted-foreground" />
-            )}
-            {task.done ? (
-              task.actualMinutes ? (
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  took {formatDuration(task.actualMinutes)}
-                </span>
-              ) : null
-            ) : locked ? (
-              task.estimatedMinutes ? (
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  ~{formatDuration(task.estimatedMinutes)}
-                </span>
-              ) : null
-            ) : (
-              <DurationPopover
-                minutes={task.estimatedMinutes}
-                onChange={(estimatedMinutes) =>
-                  updateAttemptTask(attempt.id, task.id, { estimatedMinutes })
-                }
-                placeholder="Estimate"
-                prefix="~"
+              {/* Base UI Checkbox re-dispatches the click from a hidden sibling input,
+                so propagation must be stopped on a wrapper, not the checkbox itself. */}
+              <span
+                className="flex shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Checkbox
+                  checked={task.done}
+                  disabled={locked}
+                  onCheckedChange={() => toggleAttemptTask(attempt.id, task.id)}
+                />
+              </span>
+              <span
                 className={cn(
-                  !task.estimatedMinutes && "opacity-0 transition-opacity group-hover:opacity-100"
+                  "min-w-0 flex-1 truncate text-sm text-foreground",
+                  task.done && "text-muted-foreground",
+                )}
+              >
+                {task.title}
+              </span>
+              {task.description && (
+                <FileText
+                  size={12}
+                  className="shrink-0 text-muted-foreground"
+                />
+              )}
+              {task.done ? (
+                task.actualMinutes ? (
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    took {formatDuration(task.actualMinutes)}
+                  </span>
+                ) : null
+              ) : locked ? (
+                task.estimatedMinutes ? (
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    ~{formatDuration(task.estimatedMinutes)}
+                  </span>
+                ) : null
+              ) : (
+                <DurationPopover
+                  minutes={task.estimatedMinutes}
+                  onChange={(estimatedMinutes) =>
+                    updateAttemptTask(attempt.id, task.id, { estimatedMinutes })
+                  }
+                  placeholder="Estimate"
+                  prefix="~"
+                  className={cn(
+                    !task.estimatedMinutes &&
+                      "opacity-0 transition-opacity group-hover:opacity-100",
+                  )}
+                />
+              )}
+              <SchedulePopover
+                date={task.date}
+                done={task.done}
+                onSchedule={(date) =>
+                  updateAttemptTask(attempt.id, task.id, { date })
+                }
+                className={cn(
+                  !task.date &&
+                    "opacity-0 transition-opacity group-hover:opacity-100",
                 )}
               />
-            )}
-            <SchedulePopover
-              date={task.date}
-              done={task.done}
-              onSchedule={(date) => updateAttemptTask(attempt.id, task.id, { date })}
-              className={cn(!task.date && "opacity-0 transition-opacity group-hover:opacity-100")}
-            />
-            <ChevronRight size={13} className="shrink-0 text-muted-foreground" />
-          </div>
-        ))}
-        {!locked && <AddTaskRow onAdd={(title) => addAttemptTask(attempt.id, title)} />}
-      </div>
+              <ChevronRight
+                size={13}
+                className="shrink-0 text-muted-foreground"
+              />
+            </div>
+          ))}
+          {!locked && (
+            <AddTaskRow onAdd={(title) => addAttemptTask(attempt.id, title)} />
+          )}
+        </div>
+      )}
 
       {attempt.predictions.length > 0 ? (
         <div className="flex flex-col px-5 py-3">
@@ -405,10 +489,14 @@ export function AttemptDetailPane({
           </div>
           <div className="flex flex-col gap-4">
             {attempt.predictions.map((prediction) => {
-              const metricIndex = goal.metrics.findIndex((m) => m.id === prediction.metricId)
-              const metric = goal.metrics[metricIndex]
-              if (!metric) return null
-              const result = attempt.results.find((r) => r.metricId === prediction.metricId)
+              const metricIndex = goal.metrics.findIndex(
+                (m) => m.id === prediction.metricId,
+              );
+              const metric = goal.metrics[metricIndex];
+              if (!metric) return null;
+              const result = attempt.results.find(
+                (r) => r.metricId === prediction.metricId,
+              );
               return (
                 <OutcomeMeter
                   key={prediction.metricId}
@@ -417,7 +505,7 @@ export function AttemptDetailPane({
                   prediction={prediction}
                   result={locked ? result?.value : undefined}
                 />
-              )
+              );
             })}
           </div>
         </div>
@@ -425,32 +513,46 @@ export function AttemptDetailPane({
         <div className="flex flex-col gap-2 px-5 py-3">
           <span className="text-xs font-medium text-foreground">Results</span>
           {attempt.results.map((result) => {
-            const metricIndex = goal.metrics.findIndex((m) => m.id === result.metricId)
-            const metric = goal.metrics[metricIndex]
-            if (!metric) return null
+            const metricIndex = goal.metrics.findIndex(
+              (m) => m.id === result.metricId,
+            );
+            const metric = goal.metrics[metricIndex];
+            if (!metric) return null;
             return (
-              <div key={result.metricId} className="flex items-center gap-2 text-sm">
+              <div
+                key={result.metricId}
+                className="flex items-center gap-2 text-sm"
+              >
                 <span
                   className="size-2 shrink-0 rounded-full"
                   style={{ background: metricColor(metricIndex) }}
                 />
-                <span className="min-w-0 flex-1 truncate text-foreground">{metric.name}</span>
+                <span className="min-w-0 flex-1 truncate text-foreground">
+                  {metric.name}
+                </span>
                 <span className="font-medium tabular-nums text-foreground">
                   {formatMetricValue(result.value)}
                   {metric.unit ?? ""}
                 </span>
               </div>
-            )
+            );
           })}
         </div>
       ) : null}
 
       {locked && (
         <div className="flex flex-col gap-2.5 px-5 py-2">
-          <span className="text-xs font-medium text-foreground">Retrospective</span>
+          <span className="text-xs font-medium text-foreground">
+            Retrospective
+          </span>
           {RETRO_FIELDS.map((field) => (
-            <div key={`${attempt.id}-${field.key}`} className="flex flex-col gap-1">
-              <span className="text-[11px] text-muted-foreground">{field.label}</span>
+            <div
+              key={`${attempt.id}-${field.key}`}
+              className="flex flex-col gap-1"
+            >
+              <span className="text-[11px] text-muted-foreground">
+                {field.label}
+              </span>
               <NoteEditor
                 note={attempt.retrospective?.[field.key]}
                 placeholder={field.placeholder}
@@ -476,11 +578,17 @@ export function AttemptDetailPane({
         {attempt.status === "active" && (
           <>
             <span className="flex-1 text-xs text-muted-foreground">
-              {readyForResults
-                ? "All tasks done — measure your metrics."
-                : "Finish every task to record results."}
+              {tiny
+                ? "No tasks to track — record results whenever you're done."
+                : readyForResults
+                  ? "All tasks done — measure your metrics."
+                  : "Finish every task to record results."}
             </span>
-            <Button size="sm" onClick={onRecordResults} disabled={!readyForResults}>
+            <Button
+              size="sm"
+              onClick={onRecordResults}
+              disabled={!readyForResults}
+            >
               Record results
             </Button>
           </>
@@ -492,5 +600,5 @@ export function AttemptDetailPane({
         )}
       </div>
     </div>
-  )
+  );
 }

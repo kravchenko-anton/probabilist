@@ -1,118 +1,132 @@
-import { AttemptDetailPane } from "@/components/goals/AttemptDetailPane"
-import { AttemptFormDialog } from "@/components/goals/AttemptFormDialog"
-import { AttemptRow } from "@/components/goals/AttemptRow"
-import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
-import { GoalProgressChart } from "@/components/goals/GoalProgressChart"
-import { LogCompletedExperimentDialog } from "@/components/goals/LogCompletedExperimentDialog"
-import { RecordResultsDialog } from "@/components/goals/RecordResultsDialog"
-import { StartAttemptDialog } from "@/components/goals/StartAttemptDialog"
-import { TaskSection } from "@/components/tasks/TaskSection"
-import { Button } from "@/components/ui/button"
-import { Emoji } from "@/components/ui/emoji"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
-import type { Attempt } from "@/data/attempts"
-import { isGoalDone } from "@/data/goals"
-import { useIsMobile, useMediaQuery } from "@/hooks/use-mobile"
-import { useGoals } from "@/lib/goals-store"
-import { cn } from "@/lib/utils"
-import { Check, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
-import { useMemo, useState } from "react"
-import { useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { AttemptDetailPane } from "@/components/goals/AttemptDetailPane";
+import { AttemptFormDialog } from "@/components/goals/AttemptFormDialog";
+import { AttemptRow } from "@/components/goals/AttemptRow";
+import { GoalFormDialog } from "@/components/goals/GoalFormDialog";
+import { GoalProgressChart } from "@/components/goals/GoalProgressChart";
+import { LogCompletedExperimentDialog } from "@/components/goals/LogCompletedExperimentDialog";
+import { RecordResultsDialog } from "@/components/goals/RecordResultsDialog";
+import { StartAttemptDialog } from "@/components/goals/StartAttemptDialog";
+import { TaskSection } from "@/components/tasks/TaskSection";
+import { Button } from "@/components/ui/button";
+import { Emoji } from "@/components/ui/emoji";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import type { Attempt } from "@/data/attempts";
+import { isGoalDone } from "@/data/goals";
+import { useIsMobile, useMediaQuery } from "@/hooks/use-mobile";
+import { useGoals } from "@/lib/goals-store";
+import { cn } from "@/lib/utils";
+import { Check, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 export function GoalView() {
-  const { slug } = useParams<{ slug: string }>()
-  const { goals, attempts, deleteGoal } = useGoals()
-  const goal = goals.find((g) => g.slug === slug)
-  const navigate = useNavigate()
+  const { slug } = useParams<{ slug: string }>();
+  const { goals, attempts, deleteGoal } = useGoals();
+  const goal = goals.find((g) => g.slug === slug);
+  const navigate = useNavigate();
 
-  const [editOpen, setEditOpen] = useState(false)
-  const [attemptFormOpen, setAttemptFormOpen] = useState(false)
-  const [logCompletedOpen, setLogCompletedOpen] = useState(false)
-  const [editingAttemptId, setEditingAttemptId] = useState<string>()
-  const [startAttemptId, setStartAttemptId] = useState<string>()
-  const [resultsAttemptId, setResultsAttemptId] = useState<string>()
-  const [detailOpen, setDetailOpen] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false);
+  const [attemptFormOpen, setAttemptFormOpen] = useState(false);
+  const [logCompletedOpen, setLogCompletedOpen] = useState(false);
+  const [editingAttemptId, setEditingAttemptId] = useState<string>();
+  const [startAttemptId, setStartAttemptId] = useState<string>();
+  const [resultsAttemptId, setResultsAttemptId] = useState<string>();
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  const isDesktop = useMediaQuery("(min-width: 1024px)")
-  const isMobile = useIsMobile()
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const isMobile = useIsMobile();
 
-  const [searchParams, setSearchParams] = useSearchParams()
-  const attemptParam = searchParams.get("attempt")
-  const taskParam = searchParams.get("task")
+  const [searchParams, setSearchParams] = useSearchParams();
+  const attemptParam = searchParams.get("attempt");
+  const taskParam = searchParams.get("task");
 
   const selectAttempt = (attemptId: string) =>
-    setSearchParams({ attempt: attemptId }, { replace: true })
+    setSearchParams({ attempt: attemptId }, { replace: true });
 
   const openTask = (taskId?: string) => {
     setSearchParams(
       (prev) => {
-        const next = new URLSearchParams(prev)
-        if (taskId) next.set("task", taskId)
-        else next.delete("task")
-        return next
+        const next = new URLSearchParams(prev);
+        if (taskId) next.set("task", taskId);
+        else next.delete("task");
+        return next;
       },
-      { replace: true }
-    )
-  }
+      { replace: true },
+    );
+  };
 
   const goalAttempts = useMemo(
-    () => (goal ? attempts.filter((attempt) => attempt.goalId === goal.id) : []),
-    [attempts, goal]
-  )
+    () =>
+      goal ? attempts.filter((attempt) => attempt.goalId === goal.id) : [],
+    [attempts, goal],
+  );
 
   const openExperiments = useMemo(() => {
     const active = goalAttempts
       .filter((a) => a.status === "active")
-      .sort((a, b) => (a.startedAt?.getTime() ?? 0) - (b.startedAt?.getTime() ?? 0))
+      .sort(
+        (a, b) => (a.startedAt?.getTime() ?? 0) - (b.startedAt?.getTime() ?? 0),
+      );
     const planned = goalAttempts
       .filter((a) => a.status === "planned")
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     return [
       { kind: "active", title: "In progress", attempts: active },
       { kind: "planned", title: "Planned", attempts: planned },
-    ].filter((section) => section.attempts.length > 0)
-  }, [goalAttempts])
+    ].filter((section) => section.attempts.length > 0);
+  }, [goalAttempts]);
 
   const completedExperiments = useMemo(
     () =>
       goalAttempts
         .filter((a) => a.status === "completed")
-        .sort((a, b) => (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0)),
-    [goalAttempts]
-  )
+        .sort(
+          (a, b) =>
+            (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0),
+        ),
+    [goalAttempts],
+  );
 
   if (!goal) {
     return (
       <div className="flex h-full flex-1 items-center justify-center text-muted-foreground">
         Goal not found
       </div>
-    )
+    );
   }
 
   const orderedAttempts = [
     ...openExperiments.flatMap((section) => section.attempts),
     ...completedExperiments,
-  ]
+  ];
   const selectedAttempt =
-    orderedAttempts.find((attempt) => attempt.id === attemptParam) ?? orderedAttempts[0]
+    orderedAttempts.find((attempt) => attempt.id === attemptParam) ??
+    orderedAttempts[0];
 
-  const editingAttempt = goalAttempts.find((a) => a.id === editingAttemptId)
-  const attemptToStart = goalAttempts.find((a) => a.id === startAttemptId)
-  const attemptToRecord = goalAttempts.find((a) => a.id === resultsAttemptId)
+  const editingAttempt = goalAttempts.find((a) => a.id === editingAttemptId);
+  const attemptToStart = goalAttempts.find((a) => a.id === startAttemptId);
+  const attemptToRecord = goalAttempts.find((a) => a.id === resultsAttemptId);
 
-  const goalDone = isGoalDone(goal)
-  const openCount = openExperiments.reduce((sum, section) => sum + section.attempts.length, 0)
+  const goalDone = isGoalDone(goal);
+  const openCount = openExperiments.reduce(
+    (sum, section) => sum + section.attempts.length,
+    0,
+  );
 
   function openCreateAttempt() {
-    setEditingAttemptId(undefined)
-    setAttemptFormOpen(true)
+    setEditingAttemptId(undefined);
+    setAttemptFormOpen(true);
   }
 
   function openEditAttempt(attempt: Attempt) {
-    setEditingAttemptId(attempt.id)
-    setAttemptFormOpen(true)
+    setEditingAttemptId(attempt.id);
+    setAttemptFormOpen(true);
   }
 
   const detailPane = selectedAttempt ? (
@@ -126,7 +140,7 @@ export function GoalView() {
       onRecordResults={() => setResultsAttemptId(selectedAttempt.id)}
       onDeleted={() => setDetailOpen(false)}
     />
-  ) : null
+  ) : null;
 
   return (
     <div className="flex h-full flex-1">
@@ -134,7 +148,9 @@ export function GoalView() {
         <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex items-center gap-3">
             <Emoji value={goal.emoji} className="size-6" />
-            <h1 className="text-xl font-medium text-foreground">{goal.title}</h1>
+            <h1 className="text-xl font-medium text-foreground">
+              {goal.title}
+            </h1>
             <Popover open={menuOpen} onOpenChange={setMenuOpen}>
               <PopoverTrigger
                 render={
@@ -150,8 +166,8 @@ export function GoalView() {
               <PopoverContent align="start" className="w-40 p-1">
                 <button
                   onClick={() => {
-                    setMenuOpen(false)
-                    setEditOpen(true)
+                    setMenuOpen(false);
+                    setEditOpen(true);
                   }}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-white/5"
                 >
@@ -160,8 +176,8 @@ export function GoalView() {
                 </button>
                 <button
                   onClick={() => {
-                    deleteGoal(goal.id)
-                    navigate("/goals", { replace: true })
+                    deleteGoal(goal.id);
+                    navigate("/goals", { replace: true });
                   }}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-red-400 hover:bg-white/5"
                 >
@@ -184,7 +200,9 @@ export function GoalView() {
 
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-foreground">Experiments</h2>
+              <h2 className="text-sm font-medium text-foreground">
+                Experiments
+              </h2>
               {openCount > 0 && (
                 <Button
                   type="button"
@@ -202,7 +220,8 @@ export function GoalView() {
             {openCount === 0 ? (
               <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
                 <p className="max-w-sm text-sm text-muted-foreground">
-                  An experiment is a small bet — a list of actions that should move your metrics.
+                  An experiment is a small bet that should move your metrics —
+                  plan it out as tasks, or keep it tiny and just try it.
                 </p>
                 <Button
                   type="button"
@@ -227,8 +246,8 @@ export function GoalView() {
                         attempt={attempt}
                         selected={attempt.id === selectedAttempt?.id}
                         onSelect={() => {
-                          selectAttempt(attempt.id)
-                          if (!isDesktop) setDetailOpen(true)
+                          selectAttempt(attempt.id);
+                          if (!isDesktop) setDetailOpen(true);
                         }}
                       />
                     ))}
@@ -240,13 +259,15 @@ export function GoalView() {
 
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-foreground">Completed experiments</h2>
+              <h2 className="text-sm font-medium text-foreground">
+                Completed experiments
+              </h2>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => setLogCompletedOpen(true)}
-                aria-label="Log completed experiment"
+                aria-label="Log a past experiment"
                 className="text-muted-foreground hover:text-foreground active:scale-[0.97]"
               >
                 <Plus size={15} />
@@ -263,7 +284,8 @@ export function GoalView() {
                   Already started a journey?
                 </span>
                 <span className="text-sm text-muted-foreground">
-                  Log a completed experiment — actions, date, and results in one place.
+                  Log a past experiment — results and what you learned, even if
+                  you don&apos;t remember every step.
                 </span>
               </button>
             ) : (
@@ -274,8 +296,8 @@ export function GoalView() {
                     attempt={attempt}
                     selected={attempt.id === selectedAttempt?.id}
                     onSelect={() => {
-                      selectAttempt(attempt.id)
-                      if (!isDesktop) setDetailOpen(true)
+                      selectAttempt(attempt.id);
+                      if (!isDesktop) setDetailOpen(true);
                     }}
                   />
                 ))}
@@ -315,8 +337,8 @@ export function GoalView() {
       <AttemptFormDialog
         open={attemptFormOpen}
         onOpenChange={(open) => {
-          setAttemptFormOpen(open)
-          if (!open) setEditingAttemptId(undefined)
+          setAttemptFormOpen(open);
+          if (!open) setEditingAttemptId(undefined);
         }}
         goalId={goal.id}
         attempt={editingAttempt}
@@ -334,7 +356,7 @@ export function GoalView() {
         <StartAttemptDialog
           open
           onOpenChange={(open) => {
-            if (!open) setStartAttemptId(undefined)
+            if (!open) setStartAttemptId(undefined);
           }}
           goal={goal}
           attempt={attemptToStart}
@@ -345,12 +367,12 @@ export function GoalView() {
         <RecordResultsDialog
           open
           onOpenChange={(open) => {
-            if (!open) setResultsAttemptId(undefined)
+            if (!open) setResultsAttemptId(undefined);
           }}
           goal={goal}
           attempt={attemptToRecord}
         />
       )}
     </div>
-  )
+  );
 }

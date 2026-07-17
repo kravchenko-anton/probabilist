@@ -1,32 +1,41 @@
-import { useEffect, useState } from "react"
-import { CalendarIcon, Plus, X } from "lucide-react"
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { Emoji } from "@/components/ui/emoji"
-import { formatMetricValue } from "@/components/ui/metric-range"
-import { useGoals } from "@/lib/goals-store"
-import type { Attempt, AttemptResult, AttemptTask, Retrospective } from "@/data/attempts"
-import { metricAggregation, type Goal } from "@/data/goals"
-import { formatShortDate, startOfDay } from "@/lib/date"
-import { metricColor } from "@/lib/metric-colors"
-import { cn } from "@/lib/utils"
+} from "@/components/ui/dialog";
+import { Emoji } from "@/components/ui/emoji";
+import { Input } from "@/components/ui/input";
+import { formatMetricValue } from "@/components/ui/metric-range";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
+import type {
+  Attempt,
+  AttemptResult,
+  AttemptTask,
+  Retrospective,
+} from "@/data/attempts";
+import { metricAggregation, type Goal } from "@/data/goals";
+import { formatShortDate, startOfDay } from "@/lib/date";
+import { useGoals } from "@/lib/goals-store";
+import { metricColor } from "@/lib/metric-colors";
+import { cn } from "@/lib/utils";
+import { CalendarIcon, Plus, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
-const ICONS = ["🧪", "🚀", "🎬", "✍️", "📣", "🔧"]
+const ICONS = ["🧪", "🚀", "🎬", "✍️", "📣", "🔧"];
 
 const RETRO_FIELDS: {
-  key: keyof Retrospective
-  label: string
-  placeholder: string
+  key: keyof Retrospective;
+  label: string;
+  placeholder: string;
 }[] = [
   {
     key: "happened",
@@ -36,20 +45,21 @@ const RETRO_FIELDS: {
   {
     key: "learned",
     label: "What did you learn & will try next time?",
-    placeholder: "Insights from this try, and what you'll change on the next one",
+    placeholder:
+      "Insights from this try, and what you'll change on the next one",
   },
   {
     key: "futureNote",
     label: "One line for future you",
     placeholder: "The one thing future you should remember",
   },
-]
+];
 
 interface LogCompletedExperimentDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  goal: Goal
-  onCreated?: (attempt: Attempt) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  goal: Goal;
+  onCreated?: (attempt: Attempt) => void;
 }
 
 export function LogCompletedExperimentDialog({
@@ -58,65 +68,66 @@ export function LogCompletedExperimentDialog({
   goal,
   onCreated,
 }: LogCompletedExperimentDialogProps) {
-  const { logCompletedExperiment } = useGoals()
+  const { logCompletedExperiment } = useGoals();
 
-  const [title, setTitle] = useState("")
-  const [icon, setIcon] = useState(ICONS[0])
-  const [finishedOn, setFinishedOn] = useState<Date>()
-  const [dateOpen, setDateOpen] = useState(false)
-  const [actions, setActions] = useState<string[]>([])
-  const [actionInput, setActionInput] = useState("")
-  const [results, setResults] = useState<Record<string, string>>({})
-  const [happened, setHappened] = useState("")
-  const [learned, setLearned] = useState("")
-  const [futureNote, setFutureNote] = useState("")
+  const [title, setTitle] = useState("");
+  const [icon, setIcon] = useState(ICONS[0]);
+  const [finishedOn, setFinishedOn] = useState<Date>();
+  const [dateOpen, setDateOpen] = useState(false);
+  const [actions, setActions] = useState<string[]>([]);
+  const [actionInput, setActionInput] = useState("");
+  const [results, setResults] = useState<Record<string, string>>({});
+  const [happened, setHappened] = useState("");
+  const [learned, setLearned] = useState("");
+  const [futureNote, setFutureNote] = useState("");
 
   useEffect(() => {
-    if (!open) return
-    setTitle("")
-    setIcon(ICONS[0])
-    setFinishedOn(startOfDay(new Date()))
-    setDateOpen(false)
-    setActions([])
-    setActionInput("")
+    if (!open) return;
+    setTitle("");
+    setIcon(ICONS[0]);
+    setFinishedOn(startOfDay(new Date()));
+    setDateOpen(false);
+    setActions([]);
+    setActionInput("");
     setResults(
-      Object.fromEntries(goal.metrics.map((metric) => [metric.id, ""]))
-    )
-    setHappened("")
-    setLearned("")
-    setFutureNote("")
-  }, [open, goal.metrics])
+      Object.fromEntries(goal.metrics.map((metric) => [metric.id, ""])),
+    );
+    setHappened("");
+    setLearned("");
+    setFutureNote("");
+  }, [open, goal.metrics]);
 
   function addAction() {
-    const value = actionInput.trim()
-    if (!value) return
-    setActions((prev) => [...prev, value])
-    setActionInput("")
+    const value = actionInput.trim();
+    if (!value) return;
+    setActions((prev) => [...prev, value]);
+    setActionInput("");
   }
 
-  const isValid = !!title.trim() && !!finishedOn && actions.length > 0
+  // Actions are optional — people logging a past experiment rarely remember them.
+  const isValid = !!title.trim() && !!finishedOn;
 
   function handleSave() {
-    if (!isValid || !finishedOn) return
+    if (!isValid || !finishedOn) return;
 
-    const finishedAt = startOfDay(finishedOn)
+    const finishedAt = startOfDay(finishedOn);
     const tasks: AttemptTask[] = actions.map((actionTitle) => ({
       id: crypto.randomUUID(),
       title: actionTitle,
       done: true,
       completedAt: finishedAt,
       date: finishedAt,
-    }))
+    }));
 
     const attemptResults: AttemptResult[] = goal.metrics
       .map((metric) => {
-        const raw = results[metric.id]?.trim()
-        if (!raw) return null
-        const value = Number(raw)
-        if (!Number.isFinite(value)) return null
-        return { metricId: metric.id, value }
+        const raw = results[metric.id]?.trim();
+        if (!raw) return null;
+        const value = Number(raw);
+        if (!Number.isFinite(value)) return null;
+        return { metricId: metric.id, value };
       })
-      .filter((r): r is AttemptResult => r !== null)
+      .filter((r): r is AttemptResult => r !== null);
 
     const attempt = logCompletedExperiment({
       goalId: goal.id,
@@ -130,20 +141,24 @@ export function LogCompletedExperimentDialog({
         learned: learned.trim() || undefined,
         futureNote: futureNote.trim() || undefined,
       },
-    })
+    });
 
-    onOpenChange(false)
-    onCreated?.(attempt)
+    onOpenChange(false);
+    onCreated?.(attempt);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Log completed experiment</DialogTitle>
+          <DialogTitle>Log a past experiment</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">
+            Already tried something? Capture it here — what came of it matters
+            more than the exact steps you took.
+          </p>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-foreground">
               Title <span className="text-destructive">*</span>
@@ -158,7 +173,9 @@ export function LogCompletedExperimentDialog({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-foreground">Icon</label>
+              <label className="text-xs font-medium text-foreground">
+                Icon
+              </label>
               <div className="flex flex-wrap items-center gap-1">
                 {ICONS.map((emoji) => (
                   <button
@@ -167,7 +184,7 @@ export function LogCompletedExperimentDialog({
                     onClick={() => setIcon(emoji)}
                     className={cn(
                       "flex size-8 items-center justify-center rounded-md hover:bg-white/5",
-                      icon === emoji && "bg-white/10 ring-1 ring-primary"
+                      icon === emoji && "bg-white/10 ring-1 ring-primary",
                     )}
                   >
                     <Emoji value={emoji} className="size-5" />
@@ -198,8 +215,8 @@ export function LogCompletedExperimentDialog({
                     mode="single"
                     selected={finishedOn}
                     onSelect={(date) => {
-                      setFinishedOn(date)
-                      setDateOpen(false)
+                      setFinishedOn(date);
+                      setDateOpen(false);
                     }}
                     defaultMonth={finishedOn}
                     numberOfMonths={1}
@@ -211,22 +228,34 @@ export function LogCompletedExperimentDialog({
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-foreground">
-              Actions you did <span className="text-destructive">*</span>
+              What you did{" "}
+              <span className="font-normal text-muted-foreground">
+                (optional)
+              </span>
             </label>
+            <p className="text-[11px] text-muted-foreground">
+              Don&apos;t remember the details? Skip this — it&apos;ll be saved
+              as a tiny experiment.
+            </p>
             <div className="flex items-center gap-1.5">
               <Input
                 value={actionInput}
                 onChange={(e) => setActionInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    e.preventDefault()
-                    addAction()
+                    e.preventDefault();
+                    addAction();
                   }
                 }}
                 placeholder="Add an action and press Enter"
                 className="flex-1"
               />
-              <Button type="button" variant="ghost" size="icon-sm" onClick={addAction}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={addAction}
+              >
                 <Plus size={13} />
               </Button>
             </div>
@@ -243,7 +272,9 @@ export function LogCompletedExperimentDialog({
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => setActions((prev) => prev.filter((_, i) => i !== index))}
+                      onClick={() =>
+                        setActions((prev) => prev.filter((_, i) => i !== index))
+                      }
                     >
                       <X size={12} />
                     </Button>
@@ -255,7 +286,9 @@ export function LogCompletedExperimentDialog({
 
           {goal.metrics.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-foreground">Results</label>
+              <label className="text-xs font-medium text-foreground">
+                Results
+              </label>
               <p className="text-[11px] text-muted-foreground">
                 Optional — leave blank to skip a metric.
               </p>
@@ -273,20 +306,27 @@ export function LogCompletedExperimentDialog({
                       {metric.name}
                     </span>
                     <span className="shrink-0 text-[10px] text-muted-foreground">
-                      {metricAggregation(metric) === "sum" ? "this run" : "best"}
+                      {metricAggregation(metric) === "sum"
+                        ? "this run"
+                        : "best"}
                     </span>
                     <Input
                       type="number"
                       inputMode="decimal"
                       value={results[metric.id] ?? ""}
                       onChange={(e) =>
-                        setResults((prev) => ({ ...prev, [metric.id]: e.target.value }))
+                        setResults((prev) => ({
+                          ...prev,
+                          [metric.id]: e.target.value,
+                        }))
                       }
                       placeholder={formatMetricValue(metric.currentValue)}
                       className="h-8 w-24"
                     />
                     {metric.unit && (
-                      <span className="shrink-0 text-xs text-muted-foreground">{metric.unit}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {metric.unit}
+                      </span>
                     )}
                   </div>
                 ))}
@@ -295,23 +335,27 @@ export function LogCompletedExperimentDialog({
           )}
 
           <div className="flex flex-col gap-2.5">
-            <label className="text-xs font-medium text-foreground">Retrospective</label>
+            <label className="text-xs font-medium text-foreground">
+              Retrospective
+            </label>
             {RETRO_FIELDS.map((field) => {
               const value =
                 field.key === "happened"
                   ? happened
                   : field.key === "learned"
                     ? learned
-                    : futureNote
+                    : futureNote;
               const setValue =
                 field.key === "happened"
                   ? setHappened
                   : field.key === "learned"
                     ? setLearned
-                    : setFutureNote
+                    : setFutureNote;
               return (
                 <div key={field.key} className="flex flex-col gap-1">
-                  <span className="text-[11px] text-muted-foreground">{field.label}</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {field.label}
+                  </span>
                   <Textarea
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
@@ -319,7 +363,7 @@ export function LogCompletedExperimentDialog({
                     className="min-h-16 text-sm"
                   />
                 </div>
-              )
+              );
             })}
           </div>
         </div>
@@ -334,5 +378,5 @@ export function LogCompletedExperimentDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

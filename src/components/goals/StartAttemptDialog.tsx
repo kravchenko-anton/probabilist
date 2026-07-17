@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react"
-import { AnimatePresence, motion } from "motion/react"
-import { Check } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -8,12 +6,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
 import { PredictionRange, formatMetricValue } from "@/components/ui/metric-range"
-import { useGoals } from "@/lib/goals-store"
-import { metricAggregation, type Goal, type GoalMetric } from "@/data/goals"
 import { metricDirection, type Attempt, type MetricPrediction } from "@/data/attempts"
+import { metricAggregation, type Goal, type GoalMetric } from "@/data/goals"
+import { useGoals } from "@/lib/goals-store"
 import { metricColor } from "@/lib/metric-colors"
+import { Check } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
+import { useEffect, useState } from "react"
 
 interface PredictionDraft {
   worst: number
@@ -23,8 +23,6 @@ interface PredictionDraft {
 
 function defaultDraft(metric: GoalMetric): PredictionDraft {
   const dir = metricDirection(metric)
-  // Sum metrics: predict this attempt's contribution (from 0).
-  // Max metrics: predict absolute outcome relative to current best.
   if (metricAggregation(metric) === "sum") {
     const target = Math.max(metric.targetValue - metric.currentValue, 0)
     const best = target > 0 ? target : Math.max(metric.targetValue, 1)
