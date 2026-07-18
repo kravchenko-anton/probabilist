@@ -1,84 +1,114 @@
-import { Emoji } from "@/components/ui/emoji";
+import { Emoji } from "@/components/ui/emoji"
 import {
-  activeTasks,
-  deadlineMissDays,
-  formatMissDays,
+  classifyOutcome,
   isOverdue,
   isTinyAttempt,
-  tasksDoneCount,
+  metricDirection,
   type Attempt,
-} from "@/data/attempts";
-import { formatShortDate } from "@/lib/date";
-import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
+} from "@/data/attempts"
+import type { Goal } from "@/data/goals"
+import { formatShortDate } from "@/lib/date"
+import { cn } from "@/lib/utils"
 
 interface AttemptRowProps {
-  attempt: Attempt;
-  selected?: boolean;
-  onSelect: () => void;
+  attempt: Attempt
+  goal?: Goal
+  selected?: boolean
+  onSelect: () => void
 }
 
 function StatusIndicator({ attempt }: { attempt: Attempt }) {
   if (attempt.status === "completed") {
     return (
-      <span className="flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-primary bg-primary text-primary-foreground">
-        <Check size={10} />
+      <span className="flex size-4 shrink-0 items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-400/15 text-emerald-400">
+        <span className="size-1.5 rounded-full bg-emerald-400" />
       </span>
-    );
+    )
   }
   if (attempt.status === "active") {
     return (
-      <span className="size-4 shrink-0 rounded-[4px] border-2 border-primary bg-primary/20" />
-    );
+      <span className="size-4 shrink-0 rounded-full border-2 border-primary bg-primary/20" />
+    )
   }
-  return <span className="size-4 shrink-0 rounded-[4px] border border-input" />;
+  return <span className="size-4 shrink-0 rounded-full border border-input" />
 }
 
-function Subtitle({ attempt }: { attempt: Attempt }) {
+function Subtitle({ attempt, goal }: { attempt: Attempt; goal?: Goal }) {
   if (attempt.status === "completed") {
-    const miss = deadlineMissDays(attempt);
+    const firstResult = attempt.results[0]
+    const prediction = attempt.predictions.find(
+      (p) => p.metricId === firstResult?.metricId,
+    )
+    const metric = goal?.metrics.find((m) => m.id === firstResult?.metricId)
+    const outcome =
+      firstResult && prediction && metric
+        ? classifyOutcome(
+            prediction,
+            firstResult.value,
+            metricDirection(metric),
+          )
+        : null
+
     return (
       <span className="truncate text-xs text-muted-foreground">
         {attempt.completedAt
-          ? `Completed ${formatShortDate(attempt.completedAt)}`
+          ? formatShortDate(attempt.completedAt)
           : "Completed"}
-        {miss !== null && (
+        {outcome && (
           <>
             {" · "}
-            <span className={miss > 0 ? "text-red-400" : "text-emerald-400"}>
-              {formatMissDays(miss)}
+            <span className={outcome.className}>{outcome.short}</span>
+          </>
+        )}
+        {attempt.retrospective?.futureNote && (
+          <>
+            {" · "}
+            <span className="text-foreground/70">
+              “{attempt.retrospective.futureNote}”
             </span>
           </>
         )}
       </span>
-    );
+    )
   }
 
-  const detail = isTinyAttempt(attempt)
-    ? "Tiny experiment"
-    : attempt.status === "active"
-      ? `${tasksDoneCount(attempt)}/${activeTasks(attempt).length} tasks`
-      : `${activeTasks(attempt).length} tasks`;
+  if (attempt.status === "active") {
+    return (
+      <span className="truncate text-xs text-muted-foreground">
+        <span className="text-primary">Running</span>
+        {attempt.predictions.length > 0 && " · predicted"}
+        {attempt.deadline && (
+          <>
+            {" · "}
+            <span className={cn(isOverdue(attempt) && "text-red-400")}>
+              due {formatShortDate(attempt.deadline)}
+            </span>
+          </>
+        )}
+      </span>
+    )
+  }
 
   return (
     <span className="truncate text-xs text-muted-foreground">
-      <span className={cn(isOverdue(attempt) && "text-red-400")}>
-        {attempt.deadline
-          ? `Due ${formatShortDate(attempt.deadline)}`
-          : "No deadline"}
-      </span>
-      {" · "}
-      {detail}
+      Ready to predict
+      {isTinyAttempt(attempt) ? "" : " · has steps"}
+      {attempt.deadline && ` · due ${formatShortDate(attempt.deadline)}`}
     </span>
-  );
+  )
 }
 
-export function AttemptRow({ attempt, selected, onSelect }: AttemptRowProps) {
+export function AttemptRow({
+  attempt,
+  goal,
+  selected,
+  onSelect,
+}: AttemptRowProps) {
   return (
     <div
       onClick={onSelect}
       className={cn(
-        "flex cursor-pointer items-start gap-2.5 px-4 py-2 text-left hover:bg-white/5",
+        "flex cursor-pointer items-start gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-white/5 active:scale-[0.995]",
         selected && "bg-white/5",
       )}
     >
@@ -90,8 +120,8 @@ export function AttemptRow({ attempt, selected, onSelect }: AttemptRowProps) {
         <span className="truncate text-sm font-medium text-foreground">
           {attempt.title}
         </span>
-        <Subtitle attempt={attempt} />
+        <Subtitle attempt={attempt} goal={goal} />
       </span>
     </div>
-  );
+  )
 }

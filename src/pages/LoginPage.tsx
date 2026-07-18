@@ -14,7 +14,7 @@ export function LoginPage() {
 	}
 
 	if (session) {
-		return <Navigate to="/inbox" replace />
+		return <Navigate to="/" replace />
 	}
 
 	return (

@@ -73,9 +73,8 @@ export function StartAttemptDialog({ open, onOpenChange, goal, attempt }: StartA
 
         <div className="flex flex-col gap-2.5">
           <p className="text-sm text-muted-foreground">
-            Before you start, predict where each metric will land once this experiment is finished.
-            For stacking metrics, predict this experiment&apos;s contribution; for best-mode metrics,
-            predict the absolute result.
+            Before you start, predict where each metric will land. That prediction
+            is what you&apos;ll learn against when you record results.
           </p>
 
           {goal.metrics.length === 0 && (
@@ -187,7 +186,7 @@ export function StartAttemptDialog({ open, onOpenChange, goal, attempt }: StartA
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleStart}>Start experiment</Button>
+          <Button onClick={handleStart}>Predict &amp; start</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

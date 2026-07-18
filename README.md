@@ -1,32 +1,63 @@
-# React + TypeScript + Vite
+<p align="center">
+  <img src="public/favicon.svg" width="72" height="72" alt="loopy" />
+</p>
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+<h1 align="center">loopy</h1>
 
-Currently, two official plugins are available:
+<p align="center">
+  <strong>Run tiny experiments. Predict. Learn what works.</strong>
+</p>
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+<p align="center">
+  A calm space to chase goals through small, honest bets — not endless planning.
+</p>
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Why loopy?
 
-## Expanding the Oxlint configuration
+Most goal apps track *tasks*. loopy tracks **learning**.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+You set a goal, run a tiny experiment, write down what you expect to happen, then record what actually did. Over time you see which bets move the needle — and which ones don’t.
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+## The loop
+
+1. **Goal** — something you want to move (subscribers, revenue, habit, skill)
+2. **Experiment** — a small, time-boxed bet with clear steps
+3. **Predict** — what you think will change, and by how much
+4. **Learn** — log results, keep the insight, start the next loop
+
+## Features
+
+- Goals with progress across the metrics that matter
+- Tiny experiments with deadlines, tasks, and status
+- Predictions before you run — so results mean something
+- Progress charts that make outcomes visible
+- Notes for future you
+- Auth via email or Google (Supabase)
+
+## Stack
+
+- React · TypeScript · Vite
+- Tailwind CSS · shadcn/ui
+- Supabase (auth + data)
+- Cloudflare Pages (deploy)
+
+## Develop
+
+```bash
+yarn
+yarn dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Deploy
+
+```bash
+yarn deploy
+```
+
+---
+
+<p align="center">
+  <sub>Predict less vaguely. Learn more clearly.</sub>
+</p>

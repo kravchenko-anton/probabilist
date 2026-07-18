@@ -1,18 +1,5 @@
-import { useMemo, useRef, useState } from "react"
-import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react"
-import { motion } from "motion/react"
-import { ChevronsLeft, ChevronsRight, Flag } from "lucide-react"
-import {
-  addDays,
-  formatDateRangeLabel,
-  formatDuration,
-  formatShortDate,
-  formatWeekdayShort,
-  startOfDay,
-} from "@/lib/date"
-import type { Goal } from "@/data/goals"
-import { goalProgress, metricAggregation, metricProgress } from "@/data/goals"
-import { activeTasks, type Attempt } from "@/data/attempts"
+import { Emoji } from "@/components/ui/emoji"
+import { formatMetricValue as formatMetric } from "@/components/ui/metric-range"
 import {
   Select,
   SelectContent,
@@ -20,11 +7,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  activeTasks,
+  classifyOutcome,
+  metricDirection,
+  type Attempt,
+  type OutcomeInfo,
+} from "@/data/attempts"
+import type { Goal } from "@/data/goals"
+import { goalProgress, metricAggregation, metricProgress } from "@/data/goals"
+import {
+  addDays,
+  formatDateRangeLabel,
+  formatDuration,
+  formatShortDate,
+  startOfDay
+} from "@/lib/date"
+import { metricColor } from "@/lib/metric-colors"
 import { cn } from "@/lib/utils"
+import { ChevronsLeft, ChevronsRight, Flag } from "lucide-react"
+import { animate, motion } from "motion/react"
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 interface GoalProgressChartProps {
   goal: Goal
   attempts: Attempt[]
+  /** When set, the chart scrolls so this experiment’s day is active. */
+  selectedAttemptId?: string
+  onSelectAttempt?: (attemptId: string) => void
 }
 
 type RangeMode = "2w" | "all"
@@ -37,39 +51,64 @@ const MODE_OPTIONS: { value: RangeMode; label: string }[] = [
 const WINDOW_DAYS: Record<RangeMode, number> = { "2w": 14, all: Infinity }
 
 const DAY_MS = 86_400_000
-/** Bar area height in px. */
 const PLOT_H = 132
-/** Headroom above the tallest bar where the hover tooltip lives. */
-const TOP_PAD = 46
+const TOP_PAD = 52
 const CHART_H = PLOT_H + TOP_PAD
-/** Every day keeps at least this fraction of the plot as a bar. */
-const BASE_FRAC = 0.24
-/** Bars on each side of the window that render small and gray (fade-out). */
+/** Quiet / gray floor — keep low so empty days stay visually light. */
+const BASE_FRAC = 0.11
+const ACTIVE_FLOOR = 0.2
 const EDGE = 2
 const EDGE_SCALE = [0.55, 0.75]
-const BAR_EDGE = "rgba(244, 243, 242, 0.12)"
+const BAR_EDGE = "rgba(245, 245, 247, 0.1)"
+const BAR_DONE = "#30D158"
+const BAR_MISSED = "rgba(255, 69, 58, 0.4)"
+const BAR_FUTURE = "rgba(245, 245, 247, 0.12)"
+const DEADLINE_BG = "#FF453A"
+const TODAY_BG = "#0A84FF"
+const PREDICT_BG = "#64D2FF"
 
-// Same visual language as the MetricRange slider: full-width bars in the
-// active range, springs while dragging, dim idle track.
-// Past days: green when something got done, red when nothing did.
-// Future days: gray until they happen.
-const BAR_DONE = "#A3C585"
-const BAR_MISSED = "rgba(229, 100, 106, 0.45)"
-const BAR_FUTURE = "rgba(244, 243, 242, 0.13)"
-const DEADLINE_BG = "#E5646A"
-const TODAY_BG = "#3FBFB2"
+/** Apple-style momentum projection (slots or px — keep units consistent). */
+function project(velocity: number, decelerationRate = 0.995) {
+  return ((velocity / 1000) * decelerationRate) / (1 - decelerationRate)
+}
+
+/** Soft resistance past an edge — feels alive instead of hitting a wall. */
+function rubberband(overshoot: number, dimension: number, constant = 0.55) {
+  return (
+    (overshoot * dimension * constant) /
+    (dimension + constant * Math.abs(overshoot))
+  )
+}
+
+function constrainScroll(value: number, min: number, max: number) {
+  if (value < min) return min - rubberband(min - value, 2.5)
+  if (value > max) return max + rubberband(value - max, 2.5)
+  return value
+}
+
+type EventKind = "completed" | "started" | "due" | "task-done"
+
+interface DayEvent {
+  id: string
+  attemptId: string
+  title: string
+  icon?: string
+  kind: EventKind
+  taskTitle?: string
+  attempt: Attempt
+}
 
 interface DayStat {
   done: number
   planned: number
   doneMinutes: number
   plannedMinutes: number
+  events: DayEvent[]
 }
 
 interface Slot {
   key: number
   start: Date
-  /** Inclusive last day of the slot — equals `start` for single-day slots. */
   end: Date
   days: number
   done: number
@@ -79,32 +118,89 @@ interface Slot {
   isFuture: boolean
   isToday: boolean
   isPeriodEnd: boolean
-  deadlines: string[]
+  events: DayEvent[]
 }
 
 function diffDays(a: Date, b: Date) {
-  return Math.round((startOfDay(a).getTime() - startOfDay(b).getTime()) / DAY_MS)
+  return Math.round(
+    (startOfDay(a).getTime() - startOfDay(b).getTime()) / DAY_MS,
+  )
 }
 
-function buildDayStats(attempts: Attempt[]) {
+function buildDayStats(attempts: Attempt[]): Map<number, DayStat> {
   const stats = new Map<number, DayStat>()
   const at = (key: number) => {
     let entry = stats.get(key)
     if (!entry) {
-      entry = { done: 0, planned: 0, doneMinutes: 0, plannedMinutes: 0 }
+      entry = {
+        done: 0,
+        planned: 0,
+        doneMinutes: 0,
+        plannedMinutes: 0,
+        events: [],
+      }
       stats.set(key, entry)
     }
     return entry
   }
 
   for (const attempt of attempts) {
-    for (const task of activeTasks(attempt)) {
+    const tasks = activeTasks(attempt)
+
+    if (attempt.startedAt) {
+      const entry = at(startOfDay(attempt.startedAt).getTime())
+      entry.events.push({
+        id: `${attempt.id}-started`,
+        attemptId: attempt.id,
+        title: attempt.title,
+        icon: attempt.icon,
+        kind: "started",
+        attempt,
+      })
+    }
+
+    if (attempt.completedAt) {
+      const entry = at(startOfDay(attempt.completedAt).getTime())
+      // Tiny experiments: the completion itself is the win on the bar.
+      // Standard ones are counted via their steps below.
+      if (tasks.length === 0) entry.done += 1
+      entry.events.push({
+        id: `${attempt.id}-completed`,
+        attemptId: attempt.id,
+        title: attempt.title,
+        icon: attempt.icon,
+        kind: "completed",
+        attempt,
+      })
+    } else if (attempt.deadline && attempt.status !== "completed") {
+      const entry = at(startOfDay(attempt.deadline).getTime())
+      entry.planned += 1
+      entry.events.push({
+        id: `${attempt.id}-due`,
+        attemptId: attempt.id,
+        title: attempt.title,
+        icon: attempt.icon,
+        kind: "due",
+        attempt,
+      })
+    }
+
+    for (const task of tasks) {
       if (task.done) {
         const when = task.completedAt ?? task.date
         if (!when) continue
         const entry = at(startOfDay(when).getTime())
         entry.done += 1
         entry.doneMinutes += task.actualMinutes ?? task.estimatedMinutes ?? 0
+        entry.events.push({
+          id: `${attempt.id}-task-${task.id}`,
+          attemptId: attempt.id,
+          title: attempt.title,
+          icon: attempt.icon,
+          kind: "task-done",
+          taskTitle: task.title,
+          attempt,
+        })
       } else if (task.date) {
         const entry = at(startOfDay(task.date).getTime())
         entry.planned += 1
@@ -112,27 +208,29 @@ function buildDayStats(attempts: Attempt[]) {
       }
     }
   }
+
   return stats
 }
 
-function buildDeadlines(attempts: Attempt[]) {
-  const deadlines = new Map<number, string[]>()
-  for (const attempt of attempts) {
-    if (attempt.status === "completed" || !attempt.deadline) continue
-    const key = startOfDay(attempt.deadline).getTime()
-    deadlines.set(key, [...(deadlines.get(key) ?? []), attempt.title])
-  }
-  return deadlines
-}
-
-/** Things-style completion pie — same as the Today/Tomorrow page header. */
 function ProgressPie({ value }: { value: number }) {
   const r = 4.75
   const c = 2 * Math.PI * r
   const clamped = Math.min(1, Math.max(0, value))
   return (
-    <svg width={20} height={20} viewBox="0 0 20 20" className="shrink-0 text-primary">
-      <circle cx="10" cy="10" r="8.75" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    <svg
+      width={20}
+      height={20}
+      viewBox="0 0 20 20"
+      className="shrink-0 text-primary"
+    >
+      <circle
+        cx="10"
+        cy="10"
+        r="8.75"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
       <circle
         cx="10"
         cy="10"
@@ -148,35 +246,210 @@ function ProgressPie({ value }: { value: number }) {
 }
 
 function formatMetricValue(value: number, unit?: string) {
-  const rounded = Number.isInteger(value) ? value : Math.round(value * 100) / 100
-  const text = Math.abs(rounded) >= 10_000 ? rounded.toLocaleString("en-US") : `${rounded}`
+  const rounded = Number.isInteger(value)
+    ? value
+    : Math.round(value * 100) / 100
+  const text =
+    Math.abs(rounded) >= 10_000 ? rounded.toLocaleString("en-US") : `${rounded}`
   return unit ? `${text}${unit}` : text
 }
 
-export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
+function uniqueAttempts(events: DayEvent[]) {
+  const seen = new Set<string>()
+  const list: Attempt[] = []
+  for (const event of events) {
+    if (seen.has(event.attemptId)) continue
+    seen.add(event.attemptId)
+    list.push(event.attempt)
+  }
+  return list
+}
+
+function attemptRingColor(events: DayEvent[], attemptId: string) {
+  const kinds = new Set(
+    events.filter((e) => e.attemptId === attemptId).map((e) => e.kind),
+  )
+  if (kinds.has("completed")) return BAR_DONE
+  if (kinds.has("started")) return PREDICT_BG
+  if (kinds.has("due")) return DEADLINE_BG
+  return "rgba(245, 245, 247, 0.35)"
+}
+
+function ExperimentChips({
+  events,
+  attempts,
+}: {
+  events: DayEvent[]
+  attempts: Attempt[]
+}) {
+  const shown = attempts.slice(0, 3)
+  const extra = attempts.length - shown.length
+  return (
+    <span className="flex items-center">
+      {shown.map((attempt, i) => (
+        <span
+          key={attempt.id}
+          className="relative flex size-[18px] items-center justify-center rounded-full bg-black/50"
+          style={{
+            marginLeft: i === 0 ? 0 : -6,
+            zIndex: shown.length - i,
+            boxShadow: `0 0 0 1.5px ${attemptRingColor(events, attempt.id)}`,
+          }}
+        >
+          <Emoji value={attempt.icon ?? "🧪"} className="size-2.5" />
+        </span>
+      ))}
+      {extra > 0 && (
+        <span
+          className="relative flex size-[18px] items-center justify-center rounded-full bg-black/60 text-[8px] font-semibold text-white"
+          style={{ marginLeft: -6, zIndex: 0 }}
+        >
+          +{extra}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/** Icons inside the bar — decorative; the active-day panel below is the menu. */
+function ExperimentDayStack({ events }: { events: DayEvent[] }) {
+  const attempts = uniqueAttempts(events)
+  if (attempts.length === 0) return null
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-1 z-10 flex justify-center">
+      <ExperimentChips events={events} attempts={attempts} />
+    </div>
+  )
+}
+
+function PredictionOutcomeLine({
+  goal,
+  attempt,
+}: {
+  goal: Goal
+  attempt: Attempt
+}) {
+  if (attempt.predictions.length === 0 && attempt.results.length === 0) {
+    return (
+      <p className="text-[11px] text-muted-foreground/70">No prediction yet</p>
+    )
+  }
+
+  const rows = goal.metrics
+    .map((metric, index) => {
+      const prediction = attempt.predictions.find((p) => p.metricId === metric.id)
+      const result = attempt.results.find((r) => r.metricId === metric.id)
+      if (!prediction && result === undefined) return null
+      let outcome: OutcomeInfo | null = null
+      if (prediction && result !== undefined) {
+        outcome = classifyOutcome(
+          prediction,
+          result.value,
+          metricDirection(metric),
+        )
+      }
+      return (
+        <div key={metric.id} className="flex items-center gap-2 text-[11px]">
+          <span
+            className="size-1.5 shrink-0 rounded-full"
+            style={{ background: metricColor(index) }}
+          />
+          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+            {metric.name}
+          </span>
+          {prediction && (
+            <span className="tabular-nums text-muted-foreground/80">
+              {formatMetric(prediction.worst)}–
+              {formatMetric(prediction.acceptable)}–
+              {formatMetric(prediction.best)}
+            </span>
+          )}
+          {result !== undefined && (
+            <>
+              <span className="text-muted-foreground/50">→</span>
+              <span className="font-medium tabular-nums text-foreground">
+                {formatMetricValue(result.value, metric.unit)}
+              </span>
+            </>
+          )}
+          {outcome && (
+            <span className={cn("shrink-0 font-medium", outcome.className)}>
+              {outcome.short}
+            </span>
+          )}
+        </div>
+      )
+    })
+    .filter(Boolean)
+
+  if (rows.length === 0) {
+    return (
+      <p className="text-[11px] text-muted-foreground/70">No prediction yet</p>
+    )
+  }
+
+  return <div className="flex flex-col gap-1">{rows}</div>
+}
+
+const REWARD_LINES = [
+  "Nice — you made real progress.",
+  "Great work. That counts.",
+  "You showed up. Keep going.",
+  "Another win on the board.",
+]
+
+/** Best calendar day to show for an experiment on the progress strip. */
+function attemptFocusDate(attempt: Attempt): Date {
+  if (attempt.completedAt) return attempt.completedAt
+  if (attempt.startedAt) return attempt.startedAt
+  if (attempt.deadline) return attempt.deadline
+  return attempt.createdAt
+}
+
+export function GoalProgressChart({
+  goal,
+  attempts,
+  selectedAttemptId,
+  onSelectAttempt,
+}: GoalProgressChartProps) {
   const today = startOfDay(new Date())
   const goalStart = startOfDay(goal.startDate)
   const goalEnd = startOfDay(goal.endDate)
   const totalDays = Math.max(diffDays(goalEnd, goalStart) + 1, 1)
+  const progress = goalProgress(goal)
 
   const [mode, setMode] = useState<RangeMode>("2w")
-  // Window start in slot index; null = "anchored at today" (the default).
-  const [windowStart, setWindowStart] = useState<number | null>(null)
-  const [hover, setHover] = useState<{ index: number; x: number } | null>(null)
+  /** Continuous window offset in slot units — fractional while dragging / coasting. */
+  const [scroll, setScroll] = useState<number | null>(null)
   const [drag, setDrag] = useState<{ pos: number } | null>(null)
+  const [coasting, setCoasting] = useState(false)
+  const [reward, setReward] = useState<string | null>(null)
+  const prevActivity = useRef<number | null>(null)
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
-  const dragState = useRef({ startX: 0, startWin: 0, slotPx: 1 })
+  const scrollRef = useRef(0)
+  const dragState = useRef({
+    startX: 0,
+    startScroll: 0,
+    slotPx: 1,
+    pointerId: -1,
+    /** True only after movement crosses the drag threshold. */
+    dragging: false,
+    /** Visible column under the finger at pointer-down (tap → scroll that day to center). */
+    tapIndex: null as number | null,
+  })
+  const velocitySamples = useRef<{ t: number; x: number }[]>([])
   const lastTick = useRef<number | null>(null)
+  const scrollAnim = useRef<ReturnType<typeof animate> | null>(null)
+  const prevFocusAttempt = useRef<string | undefined>(undefined)
+  const DRAG_THRESHOLD_PX = 12
 
-  // "Whole period" fits everything, so long goals bucket days together there;
-  // the windowed modes always keep day granularity — you drag through days.
-  const bucketDays = mode === "all" && totalDays > 60 ? Math.ceil(totalDays / 48) : 1
+  const bucketDays =
+    mode === "all" && totalDays > 60 ? Math.ceil(totalDays / 48) : 1
 
   const slots = useMemo<Slot[]>(() => {
     const stats = buildDayStats(attempts)
-    const deadlines = buildDeadlines(attempts)
     const result: Slot[] = []
 
     for (let i = 0; i < totalDays; i += bucketDays) {
@@ -193,9 +466,10 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
         doneMinutes: 0,
         plannedMinutes: 0,
         isFuture: start.getTime() > today.getTime(),
-        isToday: start.getTime() <= today.getTime() && end.getTime() >= today.getTime(),
+        isToday:
+          start.getTime() <= today.getTime() && end.getTime() >= today.getTime(),
         isPeriodEnd: end.getTime() >= goalEnd.getTime(),
-        deadlines: [],
+        events: [],
       }
       for (let d = 0; d < days; d++) {
         const key = addDays(start, d).getTime()
@@ -205,34 +479,89 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
           slot.planned += stat.planned
           slot.doneMinutes += stat.doneMinutes
           slot.plannedMinutes += stat.plannedMinutes
+          slot.events.push(...stat.events)
         }
-        const due = deadlines.get(key)
-        if (due) slot.deadlines.push(...due)
       }
       result.push(slot)
     }
     return result
-  }, [attempts, totalDays, bucketDays, today.getTime(), goalStart.getTime(), goalEnd.getTime()])
+  }, [
+    attempts,
+    totalDays,
+    bucketDays,
+    today.getTime(),
+    goalStart.getTime(),
+    goalEnd.getTime(),
+  ])
+
+  const totalWins = useMemo(
+    () =>
+      attempts.filter((a) => a.status === "completed").length +
+      attempts.flatMap(activeTasks).filter((t) => t.done).length,
+    [attempts],
+  )
+
+  const weekWins = useMemo(() => {
+    const weekAgo = addDays(today, -6).getTime()
+    return slots
+      .filter((s) => s.start.getTime() >= weekAgo && !s.isFuture)
+      .reduce((sum, s) => sum + s.done, 0)
+  }, [slots, today])
+
+  // Celebrate when activity goes up (task done / experiment completed).
+  useEffect(() => {
+    if (prevActivity.current === null) {
+      prevActivity.current = totalWins
+      return
+    }
+    if (totalWins > prevActivity.current) {
+      const line =
+        REWARD_LINES[Math.floor(Math.random() * REWARD_LINES.length)] ??
+        REWARD_LINES[0]
+      setReward(line)
+      const t = window.setTimeout(() => setReward(null), 3200)
+      prevActivity.current = totalWins
+      return () => window.clearTimeout(t)
+    }
+    prevActivity.current = totalWins
+  }, [totalWins])
 
   const slotCount = slots.length
   const windowLen =
     mode === "all"
       ? slotCount
-      : Math.min(slotCount, Math.max(1, Math.round(WINDOW_DAYS[mode] / bucketDays)))
+      : Math.min(
+          slotCount,
+          Math.max(1, Math.round(WINDOW_DAYS[mode] / bucketDays)),
+        )
   const maxStart = slotCount - windowLen
   const isWindowed = mode !== "all" && windowLen < slotCount
 
   const todaySlot = Math.min(
     Math.max(Math.floor(diffDays(today, goalStart) / bucketDays), 0),
-    slotCount - 1
+    slotCount - 1,
   )
-  // The window may slide EDGE slots past the goal boundaries onto empty
-  // placeholder slots, so the first/last real days can sit in the active zone.
-  const minStart = isWindowed ? -EDGE : 0
-  const maxStartExt = isWindowed ? maxStart + EDGE : maxStart
-  const winStart = Math.min(Math.max(windowStart ?? todaySlot - EDGE, minStart), maxStartExt)
-  const winEnd = winStart + windowLen - 1
-  const visible = Array.from({ length: windowLen }, (_, i) => {
+  // Allow the first and last days to sit in the center (active) position.
+  const centerOffset = (windowLen - 1) / 2
+  const minStart = isWindowed ? -centerOffset : 0
+  const maxStartExt = isWindowed
+    ? Math.max(minStart, slotCount - 1 - centerOffset)
+    : maxStart
+  // Start with today in the center so one day is active immediately.
+  const defaultScroll = Math.min(
+    Math.max(todaySlot - centerOffset, minStart),
+    maxStartExt,
+  )
+  const scrollValue = scroll ?? defaultScroll
+  scrollRef.current = scrollValue
+
+  // Integer base for labels / pinning; fractional part drives the glide.
+  const winStart = Math.floor(scrollValue)
+  const scrollFrac = scrollValue - winStart
+
+  // One extra column so fractional scroll can peek the next day.
+  const stripCount = isWindowed ? windowLen + 1 : windowLen
+  const visible = Array.from({ length: stripCount }, (_, i) => {
     const idx = winStart + i
     return idx >= 0 && idx < slotCount ? slots[idx] : null
   })
@@ -242,18 +571,59 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
   const niceMax = Math.max(3, Math.ceil(dataMax / 3) * 3)
   const yTicks = [niceMax, (niceMax / 3) * 2, niceMax / 3, 0]
 
-  function applyWindowStart(next: number) {
-    const clamped = Math.min(Math.max(next, minStart), maxStartExt)
-    if (clamped === winStart) return
-    if (lastTick.current !== clamped) {
-      lastTick.current = clamped
+  function tickHaptic(next: number) {
+    // Tick when the active (center) day changes, not the window start.
+    const tick = Math.round(next + centerOffset)
+    if (lastTick.current !== tick) {
+      lastTick.current = tick
       try {
-        navigator.vibrate?.(4)
+        navigator.vibrate?.(5)
       } catch {
         /* haptics unsupported */
       }
     }
-    setWindowStart(clamped)
+  }
+
+  function stopScrollAnim() {
+    scrollAnim.current?.stop()
+    scrollAnim.current = null
+    setCoasting(false)
+  }
+
+  function setScrollImmediate(next: number) {
+    scrollRef.current = next
+    setScroll(next)
+    tickHaptic(next)
+  }
+
+  function springScrollTo(target: number, velocitySlots = 0) {
+    stopScrollAnim()
+    const from = scrollRef.current
+    const clamped = Math.min(Math.max(target, minStart), maxStartExt)
+    if (Math.abs(from - clamped) < 0.001 && Math.abs(velocitySlots) < 0.05) {
+      setScrollImmediate(clamped)
+      return
+    }
+    setCoasting(true)
+    const flick = Math.abs(velocitySlots) > 1.2
+    scrollAnim.current = animate(from, clamped, {
+      type: "spring",
+      // Emotional settle: a little bounce only when the gesture threw it.
+      bounce: flick ? 0.22 : 0.06,
+      duration: flick ? 0.65 : 0.45,
+      velocity: velocitySlots,
+      onUpdate: (v: number) => {
+        scrollRef.current = v
+        setScroll(v)
+        tickHaptic(v)
+      },
+      onComplete: () => {
+        setScrollImmediate(clamped)
+        setCoasting(false)
+        scrollAnim.current = null
+        lastTick.current = null
+      },
+    })
   }
 
   function trackPos(event: ReactPointerEvent) {
@@ -261,33 +631,125 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
     return Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width))
   }
 
+  function dayIndexFromClientX(clientX: number) {
+    const rect = trackRef.current?.getBoundingClientRect()
+    if (!rect || rect.width <= 0) return null
+    const ratio = (clientX - rect.left) / rect.width
+    const index = Math.floor(ratio * windowLen)
+    if (index < 0 || index >= windowLen) return null
+    return index
+  }
+
+  /** Scroll position that puts this slot in the center (active) position. */
+  function scrollForActive(slotIndex: number) {
+    const clamped = Math.min(Math.max(slotIndex, 0), Math.max(slotCount - 1, 0))
+    return Math.min(Math.max(clamped - centerOffset, minStart), maxStartExt)
+  }
+
+  /** Scroll so this absolute slot index sits in the center (active) position. */
+  function scrollDayToCenter(slotIndex: number, velocity = 0) {
+    springScrollTo(scrollForActive(slotIndex), velocity)
+  }
+
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (!isWindowed) return
     if (event.button !== 0 && event.pointerType === "mouse") return
-    event.preventDefault()
+    // Don't preventDefault / capture yet — wait until this is a real drag.
     const rect = trackRef.current!.getBoundingClientRect()
     dragState.current = {
       startX: event.clientX,
-      startWin: winStart,
+      startScroll: scrollRef.current,
       slotPx: rect.width / windowLen,
+      pointerId: event.pointerId,
+      dragging: false,
+      tapIndex: dayIndexFromClientX(event.clientX),
     }
-    event.currentTarget.setPointerCapture(event.pointerId)
-    setHover(null)
-    setDrag({ pos: trackPos(event) })
+    velocitySamples.current = [{ t: performance.now(), x: event.clientX }]
   }
 
   function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!drag) return
-    const { startX, startWin, slotPx } = dragState.current
-    // Dragging left pulls later days into the window, like scrolling.
-    const delta = Math.round((startX - event.clientX) / slotPx)
+    if (dragState.current.pointerId !== event.pointerId) return
+    const { startX, startScroll, slotPx, dragging } = dragState.current
+    const dx = Math.abs(event.clientX - startX)
+
+    if (!dragging) {
+      if (dx < DRAG_THRESHOLD_PX) return
+      dragState.current.dragging = true
+      dragState.current.tapIndex = null
+      stopScrollAnim()
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      } catch {
+        /* already captured */
+      }
+      setDrag({ pos: trackPos(event) })
+    }
+
+    const now = performance.now()
+    velocitySamples.current.push({ t: now, x: event.clientX })
+    if (velocitySamples.current.length > 6) velocitySamples.current.shift()
+
+    const raw = startScroll + (startX - event.clientX) / slotPx
+    const next = constrainScroll(raw, minStart, maxStartExt)
     setDrag({ pos: trackPos(event) })
-    applyWindowStart(startWin + delta)
+    setScrollImmediate(next)
   }
 
-  function endDrag() {
+  function endDrag(event?: ReactPointerEvent<HTMLDivElement>) {
+    const { dragging, tapIndex, slotPx, pointerId } = dragState.current
+    if (pointerId < 0) return
+
+    if (!dragging) {
+      // Tap a day → bring it to center (active). No pin/pick mode.
+      if (tapIndex !== null) {
+        const slotIndex = Math.floor(scrollRef.current) + tapIndex
+        scrollDayToCenter(slotIndex, 0)
+      } else {
+        const current = scrollRef.current
+        const settled = scrollForActive(
+          Math.round(current + centerOffset),
+        )
+        if (Math.abs(current - settled) > 0.08) {
+          springScrollTo(settled, 0)
+        }
+      }
+      dragState.current.pointerId = -1
+      dragState.current.tapIndex = null
+      velocitySamples.current = []
+      lastTick.current = null
+      return
+    }
+
     setDrag(null)
-    lastTick.current = null
+
+    const samples = velocitySamples.current
+    let velocityPx = 0
+    if (samples.length >= 2) {
+      const first = samples[0]
+      const last = samples[samples.length - 1]
+      const dt = last.t - first.t
+      if (dt > 0) velocityPx = ((last.x - first.x) / dt) * 1000
+    }
+    velocitySamples.current = []
+    dragState.current.pointerId = -1
+    dragState.current.dragging = false
+
+    const velocitySlots = -velocityPx / Math.max(slotPx, 1)
+    const current = scrollRef.current
+    const projected = current + project(velocitySlots)
+    const targetActive = Math.min(
+      Math.max(Math.round(projected + centerOffset), 0),
+      Math.max(slotCount - 1, 0),
+    )
+    springScrollTo(scrollForActive(targetActive), velocitySlots)
+
+    if (event) {
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      } catch {
+        /* not captured */
+      }
+    }
   }
 
   function onTrackKeyDown(event: ReactKeyboardEvent) {
@@ -300,71 +762,145 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
           : 0
     if (!dir) return
     event.preventDefault()
-    applyWindowStart(winStart + dir)
+    const active = Math.round(scrollRef.current + centerOffset)
+    springScrollTo(scrollForActive(active + dir), dir * 2.5)
   }
 
   function handleModeChange(next: RangeMode) {
+    stopScrollAnim()
     setMode(next)
-    setWindowStart(null)
-    setHover(null)
+    setScroll(null)
   }
 
-  const rangeLabel = formatDateRangeLabel(
-    slots[Math.max(winStart, 0)].start,
-    slots[Math.min(winEnd, slotCount - 1)].end
-  )
-  const daysToStart = Math.max(0, winStart + EDGE) * bucketDays
-  const daysToEnd = Math.max(0, slotCount - 1 - (winEnd - EDGE)) * bucketDays
+  const selectedAttempt = selectedAttemptId
+    ? attempts.find((a) => a.id === selectedAttemptId)
+    : undefined
+  const focusSlotIndex = selectedAttempt
+    ? Math.min(
+        Math.max(
+          Math.floor(
+            diffDays(startOfDay(attemptFocusDate(selectedAttempt)), goalStart) /
+              bucketDays,
+          ),
+          0,
+        ),
+        Math.max(slotCount - 1, 0),
+      )
+    : null
 
+  // When the user picks an experiment, bring its day to the center.
+  useEffect(() => {
+    if (!selectedAttemptId || focusSlotIndex === null) {
+      prevFocusAttempt.current = selectedAttemptId
+      return
+    }
+    if (prevFocusAttempt.current === selectedAttemptId) return
+    prevFocusAttempt.current = selectedAttemptId
+    if (isWindowed) {
+      scrollDayToCenter(focusSlotIndex, 0)
+    }
+  }, [selectedAttemptId, focusSlotIndex, isWindowed])
+
+  const labelStart = Math.max(winStart, 0)
+  const labelEnd = Math.min(winStart + windowLen - 1, slotCount - 1)
+  const rangeLabel = formatDateRangeLabel(
+    slots[labelStart]?.start ?? goalStart,
+    slots[labelEnd]?.end ?? goalEnd,
+  )
   const tiles = useMemo(() => {
     if (goal.metrics.length > 0) {
       return goal.metrics.map((metric) => {
-        const progress = Math.round(metricProgress(metric))
-        const mode = metricAggregation(metric)
+        const pct = Math.round(metricProgress(metric))
+        const agg = metricAggregation(metric)
         return {
           key: metric.id,
           value: formatMetricValue(metric.currentValue, metric.unit),
-          delta: `${progress}%`,
-          positive: progress > 0,
+          delta: `${pct}%`,
+          positive: pct > 0,
           label: metric.name,
-          hint: mode === "sum" ? "Adds up" : "Best",
+          hint: agg === "sum" ? "Adds up" : "Best",
         }
       })
     }
     const tasks = attempts.flatMap(activeTasks)
     const done = tasks.filter((task) => task.done)
-    const minutes = done.reduce((sum, task) => sum + (task.actualMinutes ?? 0), 0)
+    const minutes = done.reduce(
+      (sum, task) => sum + (task.actualMinutes ?? 0),
+      0,
+    )
     const daysLeft = Math.max(0, diffDays(goalEnd, today))
     return [
-      { key: "tasks", value: `${done.length}/${tasks.length}`, delta: undefined, positive: false, label: "Tasks done", hint: undefined },
-      { key: "time", value: formatDuration(minutes), delta: undefined, positive: false, label: "Time logged", hint: undefined },
-      { key: "days", value: `${daysLeft}`, delta: undefined, positive: false, label: "Days left", hint: undefined },
+      {
+        key: "tasks",
+        value: `${done.length}/${tasks.length}`,
+        delta: undefined,
+        positive: false,
+        label: "Steps done",
+        hint: undefined,
+      },
+      {
+        key: "time",
+        value: formatDuration(minutes),
+        delta: undefined,
+        positive: false,
+        label: "Time logged",
+        hint: undefined,
+      },
+      {
+        key: "days",
+        value: `${daysLeft}`,
+        delta: undefined,
+        positive: false,
+        label: "Days left",
+        hint: undefined,
+      },
     ]
   }, [goal.metrics, attempts, goalEnd.getTime(), today.getTime()])
 
-  function showTooltip(index: number, target: HTMLElement) {
-    const wrap = wrapRef.current
-    if (!wrap || drag) return
-    const rect = target.getBoundingClientRect()
-    const wrapRect = wrap.getBoundingClientRect()
-    const x = rect.left + rect.width / 2 - wrapRect.left
-    setHover({ index, x: Math.min(Math.max(x, 76), wrapRect.width - 76) })
-  }
-
-  const hovered = hover ? visible[hover.index] : undefined
+  // One day is always active: center of the scroll window; whole-period
+  // follows the selected experiment’s day when set, otherwise today.
+  const activeSlotIndex = isWindowed
+    ? Math.min(
+        Math.max(Math.round(scrollValue + centerOffset), 0),
+        Math.max(slotCount - 1, 0),
+      )
+    : (focusSlotIndex ?? todaySlot)
+  const activeDay =
+    activeSlotIndex >= 0 && activeSlotIndex < slotCount
+      ? slots[activeSlotIndex]
+      : undefined
+  const activeAttempts = activeDay ? uniqueAttempts(activeDay.events) : []
   const labelStep = isWindowed ? 1 : Math.max(1, Math.ceil(slotCount / 14))
+  const daysToStart = activeSlotIndex * bucketDays
+  const daysToEnd = Math.max(0, slotCount - 1 - activeSlotIndex) * bucketDays
+
+  const completedCount = attempts.filter((a) => a.status === "completed").length
+  const runningCount = attempts.filter((a) => a.status === "active").length
+
+  const encouragement =
+    reward ??
+    (weekWins > 0
+      ? `You made ${weekWins} win${weekWins === 1 ? "" : "s"} this week — keep going.`
+      : completedCount > 0
+        ? `${completedCount} experiment${completedCount === 1 ? "" : "s"} learned from. Your graph is your story.`
+        : "Complete a step or finish an experiment — it lights up here.")
 
   const edgeJump = (side: 0 | 1) => (
     <button
       type="button"
-      onClick={() => applyWindowStart(side === 0 ? -EDGE : maxStart + EDGE)}
+      onClick={() =>
+        springScrollTo(
+          side === 0 ? minStart : maxStartExt,
+          side === 0 ? -4 : 4,
+        )
+      }
       disabled={side === 0 ? daysToStart === 0 : daysToEnd === 0}
       title={
         side === 0
           ? `Jump to start · ${formatShortDate(goalStart)}`
           : `Jump to deadline · ${formatShortDate(goalEnd)} (${daysToEnd}d away)`
       }
-      className="flex w-7 shrink-0 items-center justify-center self-stretch rounded-lg text-muted-foreground transition-colors enabled:hover:bg-white/5 enabled:hover:text-foreground disabled:opacity-30"
+      className="flex w-7 shrink-0 items-center justify-center self-stretch rounded-lg text-muted-foreground transition-colors enabled:hover:bg-white/5 enabled:hover:text-foreground disabled:opacity-30 active:scale-[0.96]"
     >
       {side === 0 ? <ChevronsLeft size={14} /> : <ChevronsRight size={14} />}
     </button>
@@ -373,20 +909,36 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
   return (
     <div className="rounded-xl border border-border bg-card px-4 py-4 sm:px-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+        <div className="min-w-0 flex-1">
           <h2 className="text-sm font-medium text-foreground">Progress</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">{rangeLabel}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+            {rangeLabel}
+            {runningCount > 0 && (
+              <>
+                {" · "}
+                <span className="text-primary">
+                  {runningCount} running
+                </span>
+              </>
+            )}
+          </p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <div
+          <motion.div
             className="flex items-center gap-1.5"
             title="Overall goal progress"
+            animate={
+              reward
+                ? { scale: [1, 1.08, 1] }
+                : { scale: 1 }
+            }
+            transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
           >
-            <ProgressPie value={goalProgress(goal) / 100} />
+            <ProgressPie value={progress / 100} />
             <span className="text-sm font-medium text-foreground tabular-nums">
-              {Math.round(goalProgress(goal))}%
+              {Math.round(progress)}%
             </span>
-          </div>
+          </motion.div>
           <Select
             value={mode}
             onValueChange={(value) => handleModeChange(value as RangeMode)}
@@ -405,6 +957,7 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
           </Select>
         </div>
       </div>
+
 
       <div className="mt-4 flex flex-wrap gap-x-8 gap-y-3">
         {tiles.map((tile) => (
@@ -425,7 +978,10 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
                   {" · "}
                   <span
                     title="Progress toward target"
-                    className={cn("font-medium", tile.positive && "text-emerald-400")}
+                    className={cn(
+                      "font-medium",
+                      tile.positive && "text-emerald-400",
+                    )}
                   >
                     {tile.delta}
                   </span>
@@ -437,34 +993,10 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
       </div>
 
       <div ref={wrapRef} className="relative mt-4 flex gap-1.5">
-        {hovered && !drag && (
-          <div
-            className="pointer-events-none absolute top-0 z-20 -translate-x-1/2 rounded-lg bg-popover px-2.5 py-1.5 text-xs whitespace-nowrap shadow-md ring-1 ring-foreground/10"
-            style={{ left: hover!.x }}
-          >
-            <div className="font-medium text-foreground">
-              {hovered.isFuture
-                ? `${hovered.planned} planned${hovered.plannedMinutes > 0 ? ` · ${formatDuration(hovered.plannedMinutes)}` : ""}`
-                : `${hovered.done} done${hovered.doneMinutes > 0 ? ` · ${formatDuration(hovered.doneMinutes)}` : ""}`}
-            </div>
-            {!hovered.isFuture && hovered.planned > 0 && (
-              <div className="text-muted-foreground">{hovered.planned} still planned</div>
-            )}
-            <div className="text-muted-foreground">
-              {hovered.days === 1
-                ? `${formatWeekdayShort(hovered.start)}, ${formatShortDate(hovered.start)}`
-                : `${formatShortDate(hovered.start)} – ${formatShortDate(hovered.end)}`}
-            </div>
-            {hovered.isPeriodEnd && <div className="text-[#E58F93]">Goal deadline</div>}
-            {hovered.deadlines.map((title) => (
-              <div key={title} className="text-[#E58F93]">
-                Deadline · {title}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="relative w-6 shrink-0 select-none" style={{ height: CHART_H }}>
+        <div
+          className="relative w-6 shrink-0 select-none"
+          style={{ height: CHART_H }}
+        >
           {yTicks.map((tick) => (
             <span
               key={tick}
@@ -479,11 +1011,17 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
         {isWindowed && edgeJump(0)}
 
         <div className="relative min-w-0 flex-1">
-          <div className="pointer-events-none absolute inset-x-0 top-0" style={{ height: CHART_H }}>
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0"
+            style={{ height: CHART_H }}
+          >
             {yTicks.map((tick) => (
               <div
                 key={tick}
-                className={cn("absolute inset-x-0 h-px", tick === 0 ? "bg-white/12" : "bg-white/6")}
+                className={cn(
+                  "absolute inset-x-0 h-px",
+                  tick === 0 ? "bg-white/12" : "bg-white/6",
+                )}
                 style={{ top: TOP_PAD + (1 - tick / niceMax) * PLOT_H }}
               />
             ))}
@@ -496,60 +1034,83 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
             aria-label="Visible time window"
             aria-valuemin={0}
             aria-valuemax={maxStart}
-            aria-valuenow={winStart}
+            aria-valuenow={Math.round(scrollValue)}
             aria-valuetext={rangeLabel}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
-            onLostPointerCapture={endDrag}
+            onPointerUp={(e) => endDrag(e)}
+            onPointerCancel={(e) => endDrag(e)}
+            onLostPointerCapture={() => endDrag()}
             onKeyDown={onTrackKeyDown}
             className={cn(
               "relative outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/50",
               isWindowed && "touch-none",
-              isWindowed && (drag ? "cursor-grabbing" : "cursor-grab")
+              isWindowed && (drag ? "cursor-grabbing" : "cursor-grab"),
             )}
           >
+            {/* Clip horizontal peek only — keep Y open so experiment menus aren't cut off. */}
+            <div className="overflow-x-clip overflow-y-visible">
             <div
-              className="flex items-end gap-1 sm:gap-1.5"
-              style={{ height: CHART_H }}
-              onPointerLeave={() => setHover(null)}
+              className="flex items-end gap-1 sm:gap-1.5 will-change-transform"
+              style={{
+                height: CHART_H,
+                width: isWindowed
+                  ? `${(stripCount / windowLen) * 100}%`
+                  : "100%",
+                transform: isWindowed
+                  ? `translate3d(${(-scrollFrac / stripCount) * 100}%, 0, 0)`
+                  : undefined,
+              }}
             >
               {visible.map((slot, index) => {
                 const value = slot ? slotValue(slot) : 0
-                // Zero days keep a gently varied floor — the MetricRange track
-                // look. It stays below the first gridline so bars with data
-                // always read taller. The wave follows the calendar day, so it
-                // slides with the data while dragging.
                 const dayIndex = winStart + index
-                const floor = BASE_FRAC + 0.07 * Math.sin(dayIndex * 2.7 + 1.2)
+                const isQuiet =
+                  !slot ||
+                  slot.isFuture ||
+                  (slot.done === 0 && !slot.isToday)
+                const floorBase = isQuiet ? BASE_FRAC : ACTIVE_FLOOR
+                const floor =
+                  floorBase +
+                  (isQuiet ? 0.03 : 0.05) * Math.sin(dayIndex * 2.7 + 1.2)
                 const heightFrac =
-                  value === 0 ? floor : Math.max(value / niceMax, floor + 0.05)
-                const center = (index + 0.5) / windowLen
-                const boost = drag
-                  ? 1 + 0.16 * Math.exp(-(((center - drag.pos) / 0.1) ** 2))
-                  : 1
-                // The window's outer bars taper off small and gray, so the
-                // center reads as the active range.
-                const fromEdge = Math.min(index, windowLen - 1 - index)
-                const isEdge = isWindowed && fromEdge < EDGE
-                const edgeScale = isEdge ? EDGE_SCALE[fromEdge] : 1
-                // Placeholder slots outside the goal period: steady gray bars
-                // that divide "before the start / after the deadline" from the
-                // period itself.
+                  value === 0
+                    ? floor
+                    : Math.max(value / niceMax, ACTIVE_FLOOR + 0.04)
+                // Visual index within the viewport (0…windowLen) for edge fade + finger lift.
+                const viewPos = index - scrollFrac
+                const center = (viewPos + 0.5) / windowLen
+                const boost =
+                  drag && center >= 0 && center <= 1
+                    ? 1 + 0.12 * Math.exp(-(((center - drag.pos) / 0.12) ** 2))
+                    : 1
+                const fromEdge = Math.min(viewPos, windowLen - 1 - viewPos)
+                const isEdge = isWindowed && fromEdge < EDGE && fromEdge >= 0
+                const edgeScale =
+                  isEdge && fromEdge >= 0 && fromEdge < EDGE
+                    ? EDGE_SCALE[Math.floor(fromEdge)] ?? 1
+                    : viewPos < 0 || viewPos > windowLen - 1
+                      ? 0.55
+                      : 1
+
                 if (!slot) {
                   return (
                     <div
-                      key={index}
+                      key={`empty-${dayIndex}-${index}`}
                       className="flex h-full min-w-0 flex-1 items-end justify-center"
                     >
                       <div
-                        className="w-full rounded-[4px]"
-                        style={{ height: floor * 0.8 * PLOT_H, background: BAR_EDGE }}
+                        className="w-full max-w-[70%] rounded-[3px]"
+                        style={{
+                          height: floor * 0.65 * PLOT_H,
+                          background: BAR_EDGE,
+                        }}
                       />
                     </div>
                   )
                 }
+
+                const dayAttempts = uniqueAttempts(slot.events)
                 const color = isEdge
                   ? BAR_EDGE
                   : slot.isFuture
@@ -561,53 +1122,96 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
                         : BAR_MISSED
                 const isStart = dayIndex === 0
                 const isEnd = slot.isPeriodEnd
+                const isActive = dayIndex === activeSlotIndex
+                const isGrayBar =
+                  isEdge ||
+                  slot.isFuture ||
+                  (slot.done === 0 && color !== BAR_DONE)
+
                 return (
                   <div
-                    key={index}
-                    className="flex h-full min-w-0 flex-1 items-end justify-center"
-                    onPointerEnter={
-                      slot ? (event) => showTooltip(index, event.currentTarget) : undefined
-                    }
+                    key={slot.key}
+                    className="relative flex h-full min-w-0 flex-1 items-end justify-center"
                   >
                     <motion.div
                       initial={false}
                       animate={{
-                        height: Math.min(PLOT_H, heightFrac * boost * edgeScale * PLOT_H),
+                        height: Math.min(
+                          PLOT_H,
+                          // Keep room for icon chips inside active bars.
+                          Math.max(
+                            dayAttempts.length > 0 && !isEdge ? 36 : 0,
+                            heightFrac * boost * edgeScale * PLOT_H,
+                          ),
+                        ),
                         backgroundColor: color,
-                        filter:
-                          hover?.index === index && !drag
-                            ? "brightness(1.25)"
-                            : "brightness(1)",
+                        opacity: isActive ? 1 : 0.88,
+                        scaleY: isActive ? 1 : 0.96,
                       }}
-                      transition={{ type: "spring", stiffness: 520, damping: 42, mass: 0.7 }}
-                      className="relative w-full rounded-[4px]"
+                      transition={{
+                        type: "spring",
+                        stiffness: drag || coasting ? 380 : 520,
+                        damping: drag || coasting ? 36 : 42,
+                        mass: 0.7,
+                      }}
+                      className={cn(
+                        "relative origin-bottom overflow-visible rounded-[4px]",
+                        isGrayBar ? "w-[70%] rounded-[3px]" : "w-full",
+                      )}
+                      style={
+                        isActive
+                          ? { boxShadow: `inset 0 0 0 1.5px ${TODAY_BG}` }
+                          : undefined
+                      }
                     >
-                      {(isStart || isEnd) && (
+                      {(isStart || isEnd) && dayAttempts.length === 0 && (
                         <span
                           title={isStart ? "Goal start" : "Goal deadline"}
-                          className="absolute top-1.5 left-1/2 -translate-x-1/2"
+                          className="absolute top-1 left-1/2 -translate-x-1/2"
                         >
                           <Flag
                             size={9}
-                            className={cn("shrink-0", isStart && "text-foreground/70")}
+                            className={cn(
+                              "shrink-0",
+                              isStart && "text-foreground/70",
+                            )}
                             style={isStart ? undefined : { color: DEADLINE_BG }}
                           />
                         </span>
+                      )}
+                      {!isEdge && dayAttempts.length > 0 && (
+                        <ExperimentDayStack events={slot.events} />
                       )}
                     </motion.div>
                   </div>
                 )
               })}
             </div>
+            </div>
+          </div>
 
-            <div className="mt-2 flex h-6 gap-1 sm:gap-1.5">
+          <div className="mt-2 overflow-x-clip">
+            <div
+              className="flex h-7 gap-1 sm:gap-1.5 will-change-transform"
+              style={{
+                width: isWindowed
+                  ? `${(stripCount / windowLen) * 100}%`
+                  : "100%",
+                transform: isWindowed
+                  ? `translate3d(${(-scrollFrac / stripCount) * 100}%, 0, 0)`
+                  : undefined,
+              }}
+            >
               {visible.map((slot, index) => {
-                if (!slot) return <div key={index} className="relative min-w-0 flex-1" />
+                if (!slot)
+                  return (
+                    <div
+                      key={`label-empty-${index}`}
+                      className="relative min-w-0 flex-1"
+                    />
+                  )
                 const realIndex = winStart + index
                 const isLast = realIndex === slotCount - 1
-                // Bucketed view keeps a strict even rhythm — forced labels for
-                // today/deadlines collide with the stepped ones (dots mark them
-                // instead). Day view shows everything.
                 const labelVisible =
                   labelStep === 1
                     ? true
@@ -618,21 +1222,26 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
                   slot.days === 1
                     ? String(slot.start.getDate()).padStart(2, "0")
                     : formatShortDate(slot.start)
-                const fromEdge = Math.min(index, windowLen - 1 - index)
-                const isEdge = isWindowed && fromEdge < EDGE
+                const viewPos = index - scrollFrac
+                const fromEdge = Math.min(viewPos, windowLen - 1 - viewPos)
+                const isEdge = isWindowed && fromEdge < EDGE && fromEdge >= 0
+                const isActive = realIndex === activeSlotIndex
                 return (
-                  <div
-                    key={index}
-                    className="relative flex min-w-0 flex-1 items-center justify-center"
-                    onPointerEnter={(event) => showTooltip(index, event.currentTarget)}
+                  <button
+                    key={`label-${slot.key}`}
+                    type="button"
+                    className="relative flex h-7 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-md outline-none hover:bg-white/[0.04] active:bg-white/[0.06]"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (index >= windowLen) return
+                      scrollDayToCenter(realIndex, 0)
+                    }}
                   >
-                    {/* Labels sit out of flow so long dates never inflate the
-                        track's minimum width and push the page sideways. */}
-                    <span className="absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 whitespace-nowrap">
-                      {slot.isToday && slot.days === 1 ? (
+                    <span className="flex items-center justify-center whitespace-nowrap">
+                      {isActive || (slot.isToday && slot.days === 1) ? (
                         <span
-                          title="Today"
-                          className="flex size-[21px] items-center justify-center rounded-full text-[10px] font-semibold text-[#10312C] tabular-nums"
+                          title={isActive ? "Active day" : "Today"}
+                          className="flex size-[21px] items-center justify-center rounded-full text-[10px] font-semibold text-white tabular-nums"
                           style={{ background: TODAY_BG }}
                         >
                           {label}
@@ -641,56 +1250,161 @@ export function GoalProgressChart({ goal, attempts }: GoalProgressChartProps) {
                         <span
                           className={cn(
                             "text-[11px] tabular-nums",
-                            isEdge ? "text-muted-foreground/50" : "text-foreground/80",
-                            slot.isToday && "font-semibold text-foreground",
-                            !labelVisible && "invisible"
+                            isEdge
+                              ? "text-muted-foreground/50"
+                              : "text-foreground/80",
+                            !labelVisible && "invisible",
                           )}
                         >
                           {label}
                         </span>
                       )}
                     </span>
-                    {slot.deadlines.length > 0 && (
-                      <span
-                        title={slot.deadlines.join(", ")}
-                        className="absolute -bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full"
-                        style={{ background: DEADLINE_BG }}
-                      />
-                    )}
-                  </div>
+                  </button>
                 )
               })}
             </div>
-
           </div>
         </div>
 
         {isWindowed && edgeJump(1)}
       </div>
 
-      <div className="mt-3.5 flex items-center gap-4 text-[11px] text-muted-foreground">
+      <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full" style={{ background: BAR_DONE }} />
-          Tasks done
+          <span
+            className="size-2 rounded-full"
+            style={{ background: BAR_DONE }}
+          />
+          Wins
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full" style={{ background: BAR_MISSED }} />
-          Missed day
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full" style={{ background: BAR_FUTURE }} />
-          Upcoming
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full" style={{ background: DEADLINE_BG }} />
-          Deadline
-        </span>
-        {isWindowed && (
-          <span className="ml-auto hidden text-muted-foreground/70 sm:block">
-            Drag to move through time
+          <span className="flex size-3.5 items-center justify-center rounded-full bg-[#2c2c2e] ring-1 ring-white/15">
+            <Emoji value="🧪" className="size-2" />
           </span>
-        )}
+          Experiments
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className="size-2 rounded-full"
+            style={{ background: BAR_MISSED }}
+          />
+          Quiet
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className="size-2 rounded-full"
+            style={{ background: DEADLINE_BG }}
+          />
+          Due
+        </span>
+        <span className="ml-auto hidden text-muted-foreground/70 sm:block">
+          {isWindowed
+            ? "Scroll to choose a day · pick an experiment to jump"
+            : selectedAttempt
+              ? "Showing the selected experiment’s day"
+              : "Today is the active day below"}
+        </span>
       </div>
+
+      {activeDay && (
+        <div
+          key={activeDay.key}
+          className="mt-4 flex flex-col gap-3 border-t border-border pt-4"
+        >
+          <h3 className="text-sm font-medium text-foreground">
+            {activeDay.days === 1
+              ? formatShortDate(activeDay.start)
+              : `${formatShortDate(activeDay.start)} – ${formatShortDate(activeDay.end)}`}
+          </h3>
+
+          {activeAttempts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {activeDay.isFuture
+                ? "Nothing planned on this day yet."
+                : activeDay.done > 0
+                  ? "Activity happened here — open an experiment to see details."
+                  : "Quiet day. A tiny experiment would light this bar up."}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {activeAttempts.map((attempt) => {
+                const kinds = new Set(
+                  activeDay.events
+                    .filter((e) => e.attemptId === attempt.id)
+                    .map((e) => e.kind),
+                )
+                const taskEvents = activeDay.events.filter(
+                  (e) =>
+                    e.attemptId === attempt.id && e.kind === "task-done",
+                )
+                return (
+                  <button
+                    key={attempt.id}
+                    type="button"
+                    onClick={() => onSelectAttempt?.(attempt.id)}
+                    className={cn(
+                      "flex flex-col gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors duration-150 ease-out active:scale-[0.99]",
+                      attempt.id === selectedAttemptId
+                        ? "border-primary/40 bg-primary/[0.08]"
+                        : "border-border bg-white/[0.02] hover:bg-white/[0.05]",
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      {attempt.icon && (
+                        <Emoji value={attempt.icon} className="size-4" />
+                      )}
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                        {attempt.title}
+                      </span>
+                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                        {[
+                          kinds.has("started") && "Predicted",
+                          kinds.has("completed") && "Completed",
+                          kinds.has("due") && "Due",
+                          taskEvents.length > 0 &&
+                            `${taskEvents.length} step${taskEvents.length === 1 ? "" : "s"}`,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </div>
+
+                    {(attempt.predictions.length > 0 ||
+                      attempt.results.length > 0) && (
+                      <div className="pl-6">
+                        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                          Prediction → result
+                        </p>
+                        <PredictionOutcomeLine
+                          goal={goal}
+                          attempt={attempt}
+                        />
+                      </div>
+                    )}
+
+                    {attempt.retrospective?.futureNote && (
+                      <p className="pl-6 text-[11px] text-foreground/80">
+                        “{attempt.retrospective.futureNote}”
+                      </p>
+                    )}
+
+                    {taskEvents.length > 0 && (
+                      <ul className="pl-6 text-[11px] text-muted-foreground">
+                        {taskEvents.map((event) => (
+                          <li key={event.id} className="truncate">
+                            ✓ {event.taskTitle}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

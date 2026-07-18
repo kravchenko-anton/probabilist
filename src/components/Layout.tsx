@@ -1,7 +1,7 @@
-import { Outlet } from "react-router-dom"
-import { Sidebar } from "@/components/sidebar/Sidebar"
 import { BottomNav } from "@/components/BottomNav"
+import { Sidebar } from "@/components/sidebar/Sidebar"
 import { TimeLogDialog } from "@/components/tasks/TimeLogDialog"
+import { Outlet } from "react-router-dom"
 
 export function Layout() {
   return (

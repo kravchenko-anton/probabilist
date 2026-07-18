@@ -25,9 +25,16 @@ export function GoalsPage() {
 
       <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
         {goals.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            No goals yet. Create one to start tracking metrics through experiments.
-          </p>
+          <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
+            <p className="max-w-sm text-sm text-muted-foreground">
+              A goal is something you want to move. Experiments are the tiny bets
+              you run to learn how.
+            </p>
+            <Button onClick={() => setCreateOpen(true)} className="active:scale-[0.97]">
+              <Plus size={13} />
+              Create your first goal
+            </Button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {goals.map((goal) => {

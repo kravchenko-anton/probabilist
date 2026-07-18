@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldSeparator,
+	Field,
+	FieldDescription,
+	FieldGroup,
+	FieldLabel,
+	FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { authRedirectTo, supabase } from "@/lib/supabase"
@@ -55,7 +55,7 @@ export function LoginForm({
 					setError(signInError.message)
 					return
 				}
-				navigate("/inbox", { replace: true })
+				navigate("/", { replace: true })
 				return
 			}
 
@@ -69,7 +69,7 @@ export function LoginForm({
 			}
 
 			if (data.session) {
-				navigate("/inbox", { replace: true })
+				navigate("/", { replace: true })
 				return
 			}
 
@@ -226,9 +226,11 @@ export function LoginForm({
 					</form>
 					<div className="relative hidden bg-muted md:block">
 						<div className="absolute inset-0 flex flex-col items-center justify-center gap-3  p-8 text-center">
-							<p className="font-logo text-3xl font-medium text-white">loopy</p>
+							<p className="font-logo text-3xl font-semibold tracking-tight text-white">
+								loopy
+							</p>
 							<p className="max-w-xs text-sm text-white/60">
-								Goals, experiments, and the habits that stick.
+								Run tiny experiments. Predict. Learn what works.
 							</p>
 						</div>
 					</div>
