@@ -143,18 +143,20 @@ export function GoalView() {
   ) : null
 
   return (
-    <div className="flex h-full flex-1">
-      <div className="flex w-full flex-col lg:w-[55%] lg:border-r lg:border-divider">
-        <div className="flex flex-col gap-3 px-5 py-5 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-large bg-content1 ring-1 ring-foreground/8">
-              <Emoji value={goal.emoji} className="size-5" />
+    <div className="flex h-full min-w-0 flex-1">
+      <div className="flex w-full min-w-0 flex-col lg:w-[55%] lg:border-r lg:border-divider">
+        <div className="flex flex-col gap-3 px-3 py-4 sm:px-6 sm:py-5">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-large bg-content1 ring-1 ring-foreground/8 sm:size-10">
+              <Emoji value={goal.emoji} className="size-4 sm:size-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-xl font-medium tracking-tight text-foreground">
+              <h1 className="truncate text-lg font-medium tracking-tight text-foreground sm:text-xl">
                 {goal.title}
               </h1>
-              <p className="text-tiny text-default-500">{goal.timePeriodLabel}</p>
+              <p className="truncate text-tiny text-default-500">
+                {goal.timePeriodLabel}
+              </p>
             </div>
             <Popover open={menuOpen} onOpenChange={setMenuOpen}>
               <PopoverTrigger
@@ -203,11 +205,11 @@ export function GoalView() {
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col gap-7 overflow-y-auto px-5 pb-8 sm:px-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-3 pb-4 sm:gap-7 sm:px-6 sm:pb-8">
           <GoalProgressChart
             goal={goal}
             attempts={goalAttempts}
-            selectedAttemptId={selectedAttempt?.id}
+            selectedAttemptId={attemptParam ?? undefined}
             onSelectAttempt={(attemptId) => {
               selectAttempt(attemptId)
               if (!isDesktop) setDetailOpen(true)

@@ -74,6 +74,7 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
   const [datePickerOpen, setDatePickerOpen] = useState(false)
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [emoji, setEmoji] = useState(EMOJI_OPTIONS[0])
   const [metrics, setMetrics] = useState<DraftMetric[]>([emptyMetric()])
@@ -202,15 +203,59 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
               <label className="text-xs font-medium text-foreground">
                 Goal title <span className="text-destructive">*</span>
               </label>
-              <Input
-                autoFocus
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Grow monthly active users"
-              />
+              {/* Mobile: title + compact icon pick (list opens on the right) */}
+              <div className="flex items-center gap-2 sm:block">
+                <Input
+                  autoFocus
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Grow monthly active users"
+                  className="min-w-0 flex-1"
+                />
+                <Popover open={emojiPickerOpen} onOpenChange={setEmojiPickerOpen}>
+                  <PopoverTrigger
+                    render={
+                      <button
+                        type="button"
+                        aria-label="Choose icon"
+                        className="flex size-10 shrink-0 items-center justify-center rounded-large bg-field ring-1 ring-primary sm:hidden"
+                      />
+                    }
+                  >
+                    <Emoji value={emoji} className="size-5" />
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    side="bottom"
+                    className="w-auto min-w-0 rounded-large border-divider bg-content1 p-1 shadow-small sm:hidden"
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      {EMOJI_OPTIONS.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => {
+                            setEmoji(option)
+                            setEmojiPickerOpen(false)
+                          }}
+                          className={cn(
+                            "flex size-9 items-center justify-center rounded-lg transition-colors",
+                            emoji === option
+                              ? "bg-white/10 ring-1 ring-primary"
+                              : "hover:bg-white/5",
+                          )}
+                        >
+                          <Emoji value={option} className="size-5" />
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            {/* Desktop: separate icon row */}
+            <div className="hidden flex-col gap-1.5 sm:flex">
               <label className="text-xs font-medium text-foreground">Icon</label>
               <div className="flex items-center gap-1">
                 {EMOJI_OPTIONS.map((option) => (
@@ -220,7 +265,7 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
                     onClick={() => setEmoji(option)}
                     className={cn(
                       "flex size-8 items-center justify-center rounded-md hover:bg-white/5",
-                      emoji === option && "bg-white/10 ring-1 ring-primary"
+                      emoji === option && "bg-white/10 ring-1 ring-primary",
                     )}
                   >
                     <Emoji value={option} className="size-5" />

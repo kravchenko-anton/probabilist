@@ -16,10 +16,10 @@ export function GoalsPage() {
   const reduceMotion = useReducedMotion()
 
   return (
-    <div className="flex h-full flex-1 flex-col">
-      <header className="flex items-center gap-3 px-5 py-5 sm:px-8">
+    <div className="flex h-full min-w-0 flex-1 flex-col">
+      <header className="flex items-center gap-3 px-3 py-4 sm:px-8 sm:py-5">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-medium tracking-tight text-foreground">
+          <h1 className="text-xl font-medium tracking-tight text-foreground sm:text-2xl">
             Goals
           </h1>
           <p className="mt-0.5 text-small text-default-500">
@@ -28,15 +28,15 @@ export function GoalsPage() {
         </div>
         <Button
           size="sm"
-          className="rounded-full px-4"
+          className="shrink-0 rounded-full px-3.5"
           onClick={() => setCreateOpen(true)}
         >
           <Plus size={14} />
-          New goal
+          New
         </Button>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-8 sm:px-8">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4 sm:px-8 sm:pb-8">
         {goals.length === 0 ? (
           <div className="flex flex-col items-center gap-6 py-10 text-center sm:py-14">
             <GoalJourneyCard

@@ -23,6 +23,7 @@ import {
   formatShortDate,
   startOfDay
 } from "@/lib/date"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { metricColor } from "@/lib/metric-colors"
 import { cn } from "@/lib/utils"
 import { ChevronsLeft, ChevronsRight, Flag } from "lucide-react"
@@ -353,34 +354,39 @@ function PredictionOutcomeLine({
         )
       }
       return (
-        <div key={metric.id} className="flex items-center gap-2.5 text-tiny">
-          <span
-            className="size-1.5 shrink-0 rounded-full"
-            style={{ background: metricColor(index) }}
-          />
-          <span className="min-w-0 flex-1 truncate text-default-500">
-            {metric.name}
+        <div
+          key={metric.id}
+          className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-tiny"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span
+              className="size-1.5 shrink-0 rounded-full"
+              style={{ background: metricColor(index) }}
+            />
+            <span className="truncate text-default-500">{metric.name}</span>
           </span>
-          {prediction && (
-            <span className="tabular-nums text-default-400">
-              {formatMetric(prediction.worst)}–
-              {formatMetric(prediction.acceptable)}–
-              {formatMetric(prediction.best)}
-            </span>
-          )}
-          {result !== undefined && (
-            <>
-              <span className="text-default-400">→</span>
-              <span className="font-medium tabular-nums text-foreground">
-                {formatMetricValue(result.value, metric.unit)}
+          <span className="ml-auto flex shrink-0 items-center gap-1.5 tabular-nums">
+            {prediction && (
+              <span className="text-default-400">
+                {formatMetric(prediction.worst)}–
+                {formatMetric(prediction.acceptable)}–
+                {formatMetric(prediction.best)}
               </span>
-            </>
-          )}
-          {outcome && (
-            <span className={cn("shrink-0 font-medium", outcome.className)}>
-              {outcome.short}
-            </span>
-          )}
+            )}
+            {result !== undefined && (
+              <>
+                <span className="text-default-400">→</span>
+                <span className="font-medium text-foreground">
+                  {formatMetricValue(result.value, metric.unit)}
+                </span>
+              </>
+            )}
+            {outcome && (
+              <span className={cn("font-medium", outcome.className)}>
+                {outcome.short}
+              </span>
+            )}
+          </span>
         </div>
       )
     })
@@ -416,6 +422,7 @@ export function GoalProgressChart({
   selectedAttemptId,
   onSelectAttempt,
 }: GoalProgressChartProps) {
+  const isMobile = useIsMobile()
   const today = startOfDay(new Date())
   const goalStart = startOfDay(goal.startDate)
   const goalEnd = startOfDay(goal.endDate)
@@ -447,6 +454,7 @@ export function GoalProgressChart({
   const lastTick = useRef<number | null>(null)
   const scrollAnim = useRef<ReturnType<typeof animate> | null>(null)
   const prevFocusAttempt = useRef<string | undefined>(undefined)
+  const isFirstFocusEffect = useRef(true)
   const DRAG_THRESHOLD_PX = 12
 
   const bucketDays =
@@ -524,12 +532,16 @@ export function GoalProgressChart({
   }, [totalWins])
 
   const slotCount = slots.length
+  // Mobile: show fewer days so bars/labels stay readable; still scroll the range.
+  const mobileWindowDays = mode === "2w" ? 7 : WINDOW_DAYS[mode]
+  const visibleDays =
+    isMobile && mode !== "all" ? mobileWindowDays : WINDOW_DAYS[mode]
   const windowLen =
     mode === "all"
       ? slotCount
       : Math.min(
           slotCount,
-          Math.max(1, Math.round(WINDOW_DAYS[mode] / bucketDays)),
+          Math.max(1, Math.round(visibleDays / bucketDays)),
         )
   const maxStart = slotCount - windowLen
   const isWindowed = mode !== "all" && windowLen < slotCount
@@ -785,8 +797,13 @@ export function GoalProgressChart({
       )
     : null
 
-  // When the user picks an experiment, bring its day to the center.
+  // Open on today; only jump when the user later picks a different experiment.
   useEffect(() => {
+    if (isFirstFocusEffect.current) {
+      isFirstFocusEffect.current = false
+      prevFocusAttempt.current = selectedAttemptId
+      return
+    }
     if (!selectedAttemptId || focusSlotIndex === null) {
       prevFocusAttempt.current = selectedAttemptId
       return
@@ -888,34 +905,47 @@ export function GoalProgressChart({
           ? `Jump to start · ${formatShortDate(goalStart)}`
           : `Jump to deadline · ${formatShortDate(goalEnd)} (${daysToEnd}d away)`
       }
-      className="flex w-8 shrink-0 items-center justify-center self-stretch rounded-large text-default-500 transition-colors duration-200 enabled:hover:bg-white/5 enabled:hover:text-foreground disabled:opacity-30"
+      className="hidden w-7 shrink-0 items-center justify-center self-stretch rounded-large text-default-500 transition-colors duration-200 enabled:hover:bg-white/5 enabled:hover:text-foreground disabled:opacity-30 sm:flex"
     >
       {side === 0 ? <ChevronsLeft size={15} /> : <ChevronsRight size={15} />}
     </button>
   )
 
   return (
-    <div className="rounded-large bg-content1 px-4 py-5 ring-1 ring-foreground/8 sm:px-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="w-full min-w-0 rounded-large bg-content1 px-3 py-4 ring-1 ring-foreground/8 sm:px-5 sm:py-5">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className="text-large font-medium tracking-tight text-foreground">
-            Progress
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-large font-medium tracking-tight text-foreground">
+              Progress
+            </h2>
+            <motion.div
+              className="relative flex size-8 items-center justify-center sm:hidden"
+              title="Overall goal progress"
+              animate={reward ? { scale: [1, 1.08, 1] } : { scale: 1 }}
+              transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
+            >
+              <ProgressPie value={progress / 100} />
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-foreground tabular-nums">
+                {Math.round(progress)}%
+              </span>
+            </motion.div>
+          </div>
           <p className="mt-0.5 text-tiny text-default-500 tabular-nums">
-            {rangeLabel}
+            <span className="block truncate sm:inline">{rangeLabel}</span>
             {runningCount > 0 && (
               <>
-                {" · "}
-                <span className="font-medium text-primary">
+                <span className="hidden sm:inline">{" · "}</span>
+                <span className="mt-0.5 block font-medium text-primary sm:mt-0 sm:inline">
                   {runningCount} running
                 </span>
               </>
             )}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2.5">
+        <div className="flex shrink-0 flex-col items-end gap-2">
           <motion.div
-            className="relative flex size-9 items-center justify-center"
+            className="relative hidden size-9 items-center justify-center sm:flex"
             title="Overall goal progress"
             animate={reward ? { scale: [1, 1.08, 1] } : { scale: 1 }}
             transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
@@ -951,21 +981,23 @@ export function GoalProgressChart({
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         {tiles.map((tile) => (
           <div
             key={tile.key}
-            className="min-w-0 rounded-large bg-white/[0.04] px-3.5 py-3 sm:min-w-[140px] sm:flex-1"
+            className="min-w-0 rounded-large bg-white/[0.04] px-3 py-2.5 sm:px-3.5 sm:py-3"
           >
-            <div className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+            <div className="text-xl font-semibold tracking-tight text-foreground tabular-nums sm:text-2xl">
               {tile.value}
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-tiny text-default-500">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-tiny text-default-500">
               <span className="truncate font-medium text-default-600">
                 {tile.label}
               </span>
               {tile.hint && (
-                <span className="text-default-400">· {tile.hint}</span>
+                <span className="hidden text-default-400 sm:inline">
+                  · {tile.hint}
+                </span>
               )}
               {tile.delta && (
                 <span
@@ -983,15 +1015,15 @@ export function GoalProgressChart({
         ))}
       </div>
 
-      <div ref={wrapRef} className="relative mt-4 flex gap-1.5">
+      <div ref={wrapRef} className="relative mt-3 flex gap-1 sm:mt-4 sm:gap-1.5">
         <div
-          className="relative w-6 shrink-0 select-none"
+          className="relative w-4 shrink-0 select-none sm:w-6"
           style={{ height: CHART_H }}
         >
           {yTicks.map((tick) => (
             <span
               key={tick}
-              className="absolute right-0 text-[10px] text-default-400 tabular-nums"
+              className="absolute right-0 text-[9px] text-default-400 tabular-nums sm:text-[10px]"
               style={{ top: TOP_PAD + (1 - tick / niceMax) * PLOT_H - 7 }}
             >
               {tick}
@@ -1042,7 +1074,7 @@ export function GoalProgressChart({
             {/* Clip horizontal peek only — keep Y open so experiment menus aren't cut off. */}
             <div className="overflow-x-clip overflow-y-visible">
             <div
-              className="flex items-end gap-1 sm:gap-1.5 will-change-transform"
+              className="flex items-end gap-0.5 will-change-transform sm:gap-1.5"
               style={{
                 height: CHART_H,
                 width: isWindowed
@@ -1181,9 +1213,9 @@ export function GoalProgressChart({
             </div>
           </div>
 
-          <div className="mt-2.5 overflow-x-clip">
+          <div           className="mt-2 overflow-x-clip sm:mt-2.5">
             <div
-              className="flex h-8 gap-1 sm:gap-1.5 will-change-transform"
+              className="flex h-8 gap-0.5 sm:gap-1.5 will-change-transform"
               style={{
                 width: isWindowed
                   ? `${(stripCount / windowLen) * 100}%`
@@ -1211,7 +1243,7 @@ export function GoalProgressChart({
                         slotCount - 1 - realIndex >= labelStep * 0.6)
                 const label =
                   slot.days === 1
-                    ? String(slot.start.getDate()).padStart(2, "0")
+                    ? String(slot.start.getDate())
                     : formatShortDate(slot.start)
                 const viewPos = index - scrollFrac
                 const fromEdge = Math.min(viewPos, windowLen - 1 - viewPos)
