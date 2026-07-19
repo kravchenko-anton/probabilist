@@ -81,7 +81,7 @@ export function RecordResultsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] gap-5 overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Record results for "{attempt.title}"</DialogTitle>
         </DialogHeader>

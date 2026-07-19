@@ -213,33 +213,37 @@ function buildDayStats(attempts: Attempt[]): Map<number, DayStat> {
 }
 
 function ProgressPie({ value }: { value: number }) {
-  const r = 4.75
+  const size = 36
+  const stroke = 3
+  const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   const clamped = Math.min(1, Math.max(0, value))
   return (
     <svg
-      width={20}
-      height={20}
-      viewBox="0 0 20 20"
-      className="shrink-0 text-primary"
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="shrink-0 -rotate-90"
+      aria-hidden
     >
       <circle
-        cx="10"
-        cy="10"
-        r="8.75"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <circle
-        cx="10"
-        cy="10"
+        cx={size / 2}
+        cy={size / 2}
         r={r}
         fill="none"
-        stroke="currentColor"
-        strokeWidth={r * 2}
+        stroke="rgba(245,245,247,0.12)"
+        strokeWidth={stroke}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="#0A84FF"
+        strokeWidth={stroke}
+        strokeLinecap="round"
         strokeDasharray={`${clamped * c} ${c}`}
-        transform="rotate(-90 10 10)"
+        className="transition-[stroke-dasharray] duration-500 ease-out"
       />
     </svg>
   )
@@ -285,13 +289,13 @@ function ExperimentChips({
   const shown = attempts.slice(0, 3)
   const extra = attempts.length - shown.length
   return (
-    <span className="flex items-center">
+    <span className="flex items-center drop-shadow-sm">
       {shown.map((attempt, i) => (
         <span
           key={attempt.id}
-          className="relative flex size-[18px] items-center justify-center rounded-full bg-black/50"
+          className="relative flex size-5 items-center justify-center rounded-full bg-black/55 backdrop-blur-sm"
           style={{
-            marginLeft: i === 0 ? 0 : -6,
+            marginLeft: i === 0 ? 0 : -7,
             zIndex: shown.length - i,
             boxShadow: `0 0 0 1.5px ${attemptRingColor(events, attempt.id)}`,
           }}
@@ -301,8 +305,8 @@ function ExperimentChips({
       ))}
       {extra > 0 && (
         <span
-          className="relative flex size-[18px] items-center justify-center rounded-full bg-black/60 text-[8px] font-semibold text-white"
-          style={{ marginLeft: -6, zIndex: 0 }}
+          className="relative flex size-5 items-center justify-center rounded-full bg-black/65 text-[8px] font-semibold text-white"
+          style={{ marginLeft: -7, zIndex: 0 }}
         >
           +{extra}
         </span>
@@ -331,7 +335,7 @@ function PredictionOutcomeLine({
 }) {
   if (attempt.predictions.length === 0 && attempt.results.length === 0) {
     return (
-      <p className="text-[11px] text-muted-foreground/70">No prediction yet</p>
+      <p className="text-tiny text-default-400">No prediction yet</p>
     )
   }
 
@@ -349,16 +353,16 @@ function PredictionOutcomeLine({
         )
       }
       return (
-        <div key={metric.id} className="flex items-center gap-2 text-[11px]">
+        <div key={metric.id} className="flex items-center gap-2.5 text-tiny">
           <span
             className="size-1.5 shrink-0 rounded-full"
             style={{ background: metricColor(index) }}
           />
-          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+          <span className="min-w-0 flex-1 truncate text-default-500">
             {metric.name}
           </span>
           {prediction && (
-            <span className="tabular-nums text-muted-foreground/80">
+            <span className="tabular-nums text-default-400">
               {formatMetric(prediction.worst)}–
               {formatMetric(prediction.acceptable)}–
               {formatMetric(prediction.best)}
@@ -366,7 +370,7 @@ function PredictionOutcomeLine({
           )}
           {result !== undefined && (
             <>
-              <span className="text-muted-foreground/50">→</span>
+              <span className="text-default-400">→</span>
               <span className="font-medium tabular-nums text-foreground">
                 {formatMetricValue(result.value, metric.unit)}
               </span>
@@ -384,11 +388,11 @@ function PredictionOutcomeLine({
 
   if (rows.length === 0) {
     return (
-      <p className="text-[11px] text-muted-foreground/70">No prediction yet</p>
+      <p className="text-tiny text-default-400">No prediction yet</p>
     )
   }
 
-  return <div className="flex flex-col gap-1">{rows}</div>
+  return <div className="flex flex-col gap-1.5">{rows}</div>
 }
 
 const REWARD_LINES = [
@@ -500,13 +504,6 @@ export function GoalProgressChart({
       attempts.flatMap(activeTasks).filter((t) => t.done).length,
     [attempts],
   )
-
-  const weekWins = useMemo(() => {
-    const weekAgo = addDays(today, -6).getTime()
-    return slots
-      .filter((s) => s.start.getTime() >= weekAgo && !s.isFuture)
-      .reduce((sum, s) => sum + s.done, 0)
-  }, [slots, today])
 
   // Celebrate when activity goes up (task done / experiment completed).
   useEffect(() => {
@@ -874,16 +871,7 @@ export function GoalProgressChart({
   const daysToStart = activeSlotIndex * bucketDays
   const daysToEnd = Math.max(0, slotCount - 1 - activeSlotIndex) * bucketDays
 
-  const completedCount = attempts.filter((a) => a.status === "completed").length
   const runningCount = attempts.filter((a) => a.status === "active").length
-
-  const encouragement =
-    reward ??
-    (weekWins > 0
-      ? `You made ${weekWins} win${weekWins === 1 ? "" : "s"} this week — keep going.`
-      : completedCount > 0
-        ? `${completedCount} experiment${completedCount === 1 ? "" : "s"} learned from. Your graph is your story.`
-        : "Complete a step or finish an experiment — it lights up here.")
 
   const edgeJump = (side: 0 | 1) => (
     <button
@@ -900,42 +888,40 @@ export function GoalProgressChart({
           ? `Jump to start · ${formatShortDate(goalStart)}`
           : `Jump to deadline · ${formatShortDate(goalEnd)} (${daysToEnd}d away)`
       }
-      className="flex w-7 shrink-0 items-center justify-center self-stretch rounded-lg text-muted-foreground transition-colors enabled:hover:bg-white/5 enabled:hover:text-foreground disabled:opacity-30 active:scale-[0.96]"
+      className="flex w-8 shrink-0 items-center justify-center self-stretch rounded-large text-default-500 transition-colors duration-200 enabled:hover:bg-white/5 enabled:hover:text-foreground disabled:opacity-30"
     >
-      {side === 0 ? <ChevronsLeft size={14} /> : <ChevronsRight size={14} />}
+      {side === 0 ? <ChevronsLeft size={15} /> : <ChevronsRight size={15} />}
     </button>
   )
 
   return (
-    <div className="rounded-xl border border-border bg-card px-4 py-4 sm:px-5">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <div className="rounded-large bg-content1 px-4 py-5 ring-1 ring-foreground/8 sm:px-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-medium text-foreground">Progress</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+          <h2 className="text-large font-medium tracking-tight text-foreground">
+            Progress
+          </h2>
+          <p className="mt-0.5 text-tiny text-default-500 tabular-nums">
             {rangeLabel}
             {runningCount > 0 && (
               <>
                 {" · "}
-                <span className="text-primary">
+                <span className="font-medium text-primary">
                   {runningCount} running
                 </span>
               </>
             )}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-col items-end gap-2.5">
           <motion.div
-            className="flex items-center gap-1.5"
+            className="relative flex size-9 items-center justify-center"
             title="Overall goal progress"
-            animate={
-              reward
-                ? { scale: [1, 1.08, 1] }
-                : { scale: 1 }
-            }
+            animate={reward ? { scale: [1, 1.08, 1] } : { scale: 1 }}
             transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
           >
             <ProgressPie value={progress / 100} />
-            <span className="text-sm font-medium text-foreground tabular-nums">
+            <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold text-foreground tabular-nums">
               {Math.round(progress)}%
             </span>
           </motion.div>
@@ -944,10 +930,17 @@ export function GoalProgressChart({
             onValueChange={(value) => handleModeChange(value as RangeMode)}
             items={MODE_OPTIONS}
           >
-            <SelectTrigger size="sm">
+            <SelectTrigger
+              size="sm"
+              className="h-8 rounded-full border-divider bg-white/[0.04] px-3 text-tiny hover:bg-white/[0.07]"
+            >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent align="end" alignItemWithTrigger={false}>
+            <SelectContent
+              align="end"
+              alignItemWithTrigger={false}
+              className="rounded-large border-divider bg-content1 shadow-small"
+            >
               {MODE_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
@@ -958,34 +951,32 @@ export function GoalProgressChart({
         </div>
       </div>
 
-
-      <div className="mt-4 flex flex-wrap gap-x-8 gap-y-3">
+      <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2">
         {tiles.map((tile) => (
-          <div key={tile.key}>
-            <div className="text-xl font-semibold tracking-tight text-foreground tabular-nums">
+          <div
+            key={tile.key}
+            className="min-w-0 rounded-large bg-white/[0.04] px-3.5 py-3 sm:min-w-[140px] sm:flex-1"
+          >
+            <div className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">
               {tile.value}
             </div>
-            <div className="text-xs text-muted-foreground">
-              {tile.label}
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-tiny text-default-500">
+              <span className="truncate font-medium text-default-600">
+                {tile.label}
+              </span>
               {tile.hint && (
-                <>
-                  {" · "}
-                  <span className="text-muted-foreground/70">{tile.hint}</span>
-                </>
+                <span className="text-default-400">· {tile.hint}</span>
               )}
               {tile.delta && (
-                <>
-                  {" · "}
-                  <span
-                    title="Progress toward target"
-                    className={cn(
-                      "font-medium",
-                      tile.positive && "text-emerald-400",
-                    )}
-                  >
-                    {tile.delta}
-                  </span>
-                </>
+                <span
+                  title="Progress toward target"
+                  className={cn(
+                    "font-medium",
+                    tile.positive ? "text-emerald-400" : "text-default-500",
+                  )}
+                >
+                  · {tile.delta}
+                </span>
               )}
             </div>
           </div>
@@ -1000,7 +991,7 @@ export function GoalProgressChart({
           {yTicks.map((tick) => (
             <span
               key={tick}
-              className="absolute right-0 text-[10px] text-muted-foreground tabular-nums"
+              className="absolute right-0 text-[10px] text-default-400 tabular-nums"
               style={{ top: TOP_PAD + (1 - tick / niceMax) * PLOT_H - 7 }}
             >
               {tick}
@@ -1190,9 +1181,9 @@ export function GoalProgressChart({
             </div>
           </div>
 
-          <div className="mt-2 overflow-x-clip">
+          <div className="mt-2.5 overflow-x-clip">
             <div
-              className="flex h-7 gap-1 sm:gap-1.5 will-change-transform"
+              className="flex h-8 gap-1 sm:gap-1.5 will-change-transform"
               style={{
                 width: isWindowed
                   ? `${(stripCount / windowLen) * 100}%`
@@ -1230,7 +1221,7 @@ export function GoalProgressChart({
                   <button
                     key={`label-${slot.key}`}
                     type="button"
-                    className="relative flex h-7 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-md outline-none hover:bg-white/[0.04] active:bg-white/[0.06]"
+                    className="relative flex h-8 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-large outline-none transition-colors hover:bg-white/[0.04] active:bg-white/[0.06]"
                     onClick={(e) => {
                       e.stopPropagation()
                       if (index >= windowLen) return
@@ -1241,7 +1232,7 @@ export function GoalProgressChart({
                       {isActive || (slot.isToday && slot.days === 1) ? (
                         <span
                           title={isActive ? "Active day" : "Today"}
-                          className="flex size-[21px] items-center justify-center rounded-full text-[10px] font-semibold text-white tabular-nums"
+                          className="flex size-6 items-center justify-center rounded-full text-[11px] font-semibold text-white shadow-small tabular-nums"
                           style={{ background: TODAY_BG }}
                         >
                           {label}
@@ -1249,10 +1240,10 @@ export function GoalProgressChart({
                       ) : (
                         <span
                           className={cn(
-                            "text-[11px] tabular-nums",
+                            "text-tiny tabular-nums",
                             isEdge
-                              ? "text-muted-foreground/50"
-                              : "text-foreground/80",
+                              ? "text-default-400/50"
+                              : "text-default-500",
                             !labelVisible && "invisible",
                           )}
                         >
@@ -1270,7 +1261,7 @@ export function GoalProgressChart({
         {isWindowed && edgeJump(1)}
       </div>
 
-      <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-tiny text-default-500">
         <span className="flex items-center gap-1.5">
           <span
             className="size-2 rounded-full"
@@ -1279,7 +1270,7 @@ export function GoalProgressChart({
           Wins
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="flex size-3.5 items-center justify-center rounded-full bg-[#2c2c2e] ring-1 ring-white/15">
+          <span className="flex size-3 items-center justify-center rounded-full bg-background ring-1 ring-white/15">
             <Emoji value="🧪" className="size-2" />
           </span>
           Experiments
@@ -1298,28 +1289,24 @@ export function GoalProgressChart({
           />
           Due
         </span>
-        <span className="ml-auto hidden text-muted-foreground/70 sm:block">
-          {isWindowed
-            ? "Scroll to choose a day · pick an experiment to jump"
-            : selectedAttempt
-              ? "Showing the selected experiment’s day"
-              : "Today is the active day below"}
+        <span className="ml-auto hidden text-default-400 sm:block">
+          Scroll to choose a day
         </span>
       </div>
 
       {activeDay && (
         <div
           key={activeDay.key}
-          className="mt-4 flex flex-col gap-3 border-t border-border pt-4"
+          className="mt-5 flex flex-col gap-3 border-t border-divider pt-5"
         >
-          <h3 className="text-sm font-medium text-foreground">
+          <h3 className="text-small font-medium text-foreground">
             {activeDay.days === 1
               ? formatShortDate(activeDay.start)
               : `${formatShortDate(activeDay.start)} – ${formatShortDate(activeDay.end)}`}
           </h3>
 
           {activeAttempts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="rounded-large border border-dashed border-divider bg-white/[0.02] px-3.5 py-4 text-small text-default-500">
               {activeDay.isFuture
                 ? "Nothing planned on this day yet."
                 : activeDay.done > 0
@@ -1327,7 +1314,7 @@ export function GoalProgressChart({
                   : "Quiet day. A tiny experiment would light this bar up."}
             </p>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2.5">
               {activeAttempts.map((attempt) => {
                 const kinds = new Set(
                   activeDay.events
@@ -1338,42 +1325,55 @@ export function GoalProgressChart({
                   (e) =>
                     e.attemptId === attempt.id && e.kind === "task-done",
                 )
+                const statusChip = kinds.has("completed")
+                  ? { label: "Completed", className: "bg-emerald-400/15 text-emerald-400" }
+                  : kinds.has("started")
+                    ? { label: "Predicted", className: "bg-primary/15 text-primary" }
+                    : kinds.has("due")
+                      ? { label: "Due", className: "bg-red-400/15 text-red-400" }
+                      : taskEvents.length > 0
+                        ? {
+                            label: `${taskEvents.length} step${taskEvents.length === 1 ? "" : "s"}`,
+                            className: "bg-white/10 text-default-500",
+                          }
+                        : null
                 return (
                   <button
                     key={attempt.id}
                     type="button"
                     onClick={() => onSelectAttempt?.(attempt.id)}
                     className={cn(
-                      "flex flex-col gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors duration-150 ease-out active:scale-[0.99]",
+                      "flex flex-col gap-2.5 rounded-large px-3.5 py-3 text-left ring-1 transition-[transform,background-color,box-shadow] duration-200",
                       attempt.id === selectedAttemptId
-                        ? "border-primary/40 bg-primary/[0.08]"
-                        : "border-border bg-white/[0.02] hover:bg-white/[0.05]",
+                        ? "bg-primary/[0.1] ring-primary/40"
+                        : "bg-white/[0.03] ring-foreground/8 hover:bg-white/[0.06]",
                     )}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       {attempt.icon && (
-                        <Emoji value={attempt.icon} className="size-4" />
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-large border border-divider bg-background/50">
+                          <Emoji value={attempt.icon} className="size-4" />
+                        </span>
                       )}
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                      <span className="min-w-0 flex-1 truncate text-small font-medium text-foreground">
                         {attempt.title}
                       </span>
-                      <span className="shrink-0 text-[10px] text-muted-foreground">
-                        {[
-                          kinds.has("started") && "Predicted",
-                          kinds.has("completed") && "Completed",
-                          kinds.has("due") && "Due",
-                          taskEvents.length > 0 &&
-                            `${taskEvents.length} step${taskEvents.length === 1 ? "" : "s"}`,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
+                      {statusChip && (
+                        <span
+                          className={cn(
+                            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                            statusChip.className,
+                          )}
+                        >
+                          {statusChip.label}
+                        </span>
+                      )}
                     </div>
 
                     {(attempt.predictions.length > 0 ||
                       attempt.results.length > 0) && (
-                      <div className="pl-6">
-                        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                      <div className="rounded-large bg-black/20 px-3 py-2.5">
+                        <p className="mb-1.5 text-[10px] font-medium tracking-wide text-default-400 uppercase">
                           Prediction → result
                         </p>
                         <PredictionOutcomeLine
@@ -1384,13 +1384,13 @@ export function GoalProgressChart({
                     )}
 
                     {attempt.retrospective?.futureNote && (
-                      <p className="pl-6 text-[11px] text-foreground/80">
+                      <p className="text-tiny text-foreground/80">
                         “{attempt.retrospective.futureNote}”
                       </p>
                     )}
 
                     {taskEvents.length > 0 && (
-                      <ul className="pl-6 text-[11px] text-muted-foreground">
+                      <ul className="flex flex-col gap-1 text-tiny text-default-500">
                         {taskEvents.map((event) => (
                           <li key={event.id} className="truncate">
                             ✓ {event.taskTitle}

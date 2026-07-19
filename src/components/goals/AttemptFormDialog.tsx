@@ -129,7 +129,7 @@ export function AttemptFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-md">
+      <DialogContent className="max-w-[calc(100%-2rem)] gap-5 sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Edit experiment" : "New tiny experiment"}

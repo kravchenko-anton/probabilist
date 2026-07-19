@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Goal cinematic</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 1080px; height: 1080px; overflow: hidden; background: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision;
+    }
+    .stage {
+      position: relative; width: 1080px; height: 1080px; overflow: hidden; background: #fff;
+    }
+    .cam {
+      position: absolute; inset: 0;
+      transform-origin: 50% 50%;
+      will-change: transform, filter;
+    }
+
+    /* —— METRIC —— */
+    .metric-wrap {
+      position: absolute; inset: 0; display: grid; place-items: center;
+      will-change: opacity, filter, transform;
+    }
+    .card {
+      width: 780px; background: #2c2c2e; border-radius: 36px;
+      border: 1px solid rgba(84,84,88,.55); padding: 38px 38px 26px; color: #f5f5f7;
+      position: relative; overflow: hidden; will-change: transform;
+    }
+    .metric-name {
+      font-size: 52px; font-weight: 720; letter-spacing: -.048em; margin-bottom: 48px;
+    }
+    .bars {
+      position: relative; height: 120px; display: flex; align-items: flex-end; gap: 8px; margin-bottom: 10px;
+    }
+    .bar {
+      flex: 1; min-width: 0; border-radius: 7px; background: rgba(244,243,242,.12);
+      transform-origin: bottom center;
+    }
+    .bar.on { background: rgba(244,243,242,.55); }
+    .handle {
+      position: absolute; top: -2px; bottom: 0; width: 3px; margin-left: -1.5px;
+      border-radius: 999px; background: #0a84ff;
+    }
+    .labels {
+      display: flex; justify-content: space-between; margin-bottom: 28px;
+    }
+    .cap {
+      font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #98989f;
+    }
+    .val {
+      font-size: 40px; font-weight: 720; letter-spacing: -.04em; font-variant-numeric: tabular-nums;
+    }
+    .cta {
+      position: relative; height: 80px; border-radius: 20px; background: #0a84ff; color: #fff;
+      display: grid; place-items: center; font-size: 27px; font-weight: 750; letter-spacing: -.03em;
+      overflow: hidden; transform-origin: 50% 50%;
+    }
+    .cta-shine {
+      position: absolute; top: -40%; bottom: -40%; width: 34%; left: 0;
+      background: linear-gradient(100deg, transparent 10%, rgba(255,255,255,.3) 50%, transparent 90%);
+      transform: translateX(-160%) skewX(-14deg); opacity: 0; pointer-events: none;
+    }
+
+    /* —— OPTICAL BRIDGE —— */
+    .bridge {
+      position: absolute; inset: 0; pointer-events: none; z-index: 30;
+      opacity: 0;
+    }
+    .bloom {
+      position: absolute; left: 50%; top: 62%; width: 220px; height: 220px; margin: -110px 0 0 -110px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(10,132,255,.55) 0%, rgba(10,132,255,.12) 42%, transparent 70%);
+      filter: blur(8px); opacity: 0; transform: scale(.4);
+    }
+    .flash {
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 62%, #fff 0%, rgba(255,255,255,.92) 28%, rgba(255,255,255,0) 70%);
+      opacity: 0;
+    }
+    .streak {
+      position: absolute; left: 50%; top: 62%; height: 28px; width: 0;
+      margin-top: -14px; margin-left: 0;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #30d158, #0a84ff 45%, #64d2ff);
+      box-shadow: 0 0 28px rgba(10,132,255,.55), 0 0 60px rgba(10,132,255,.25);
+      transform-origin: 0 50%;
+      opacity: 0;
+    }
+
+    /* —— ROAD —— */
+    .road-wrap {
+      position: absolute; inset: 0; opacity: 0; will-change: opacity, filter, transform;
+    }
+    .status {
+      position: absolute; z-index: 20; top: 82px; left: 350px; width: 380px; height: 78px;
+      border-radius: 999px; background: #1c1c1e; display: flex; align-items: center;
+      gap: 14px; padding: 0 22px 0 16px; opacity: 0; transform: translateY(-10px) scale(.96);
+      box-shadow: 0 18px 40px rgba(0,0,0,.12);
+    }
+    .status-icon {
+      width: 44px; height: 44px; border-radius: 50%; border: 3px solid #0a84ff;
+      display: grid; place-items: center; flex: 0 0 auto;
+    }
+    .status-icon img { width: 30px; height: 30px; object-fit: contain; display: none; }
+    .status-icon.mode-img { border-color: transparent; }
+    .status-icon.mode-img img { display: block; }
+    .status-icon .arrow { width: 18px; height: 18px; color: #0a84ff; }
+    .status-icon.mode-img .arrow { display: none; }
+    .status-copy {
+      flex: 1; text-align: center; font-size: 19px; font-weight: 760;
+      letter-spacing: .08em; color: #0a84ff;
+    }
+    .title {
+      display: none;
+    }
+    .title h1 {
+      font-size: 52px; font-weight: 760; letter-spacing: -.05em; line-height: 1.05; color: #171719;
+    }
+    .title p {
+      margin-top: 12px; font-size: 22px; color: #8e8e93; letter-spacing: -.02em;
+    }
+    .map {
+      position: absolute; left: 0; top: 190px; width: 1080px; height: 760px; overflow: visible;
+    }
+    .glow-road {
+      fill: none; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .truck {
+      position: absolute; z-index: 16; width: 104px; height: 104px; margin: -52px 0 0 -52px; opacity: 0;
+      will-change: left, top, transform, filter;
+    }
+    .truck img {
+      width: 100%; height: 100%; object-fit: contain;
+      transform: scaleX(-1);
+      filter: drop-shadow(0 12px 18px rgba(0,0,0,.18));
+    }
+    .pop {
+      position: absolute; z-index: 14; width: 70px; height: 70px; margin: -35px 0 0 -35px;
+      opacity: 0; transform: scale(.4);
+    }
+    .pop img {
+      width: 100%; height: 100%; object-fit: contain;
+      filter: drop-shadow(0 10px 16px rgba(0,0,0,.16));
+    }
+    .goal-copy {
+      position: absolute; z-index: 12; width: 160px; text-align: center; opacity: 0;
+    }
+    .goal-copy strong {
+      display: block; font-size: 18px; font-weight: 800; letter-spacing: .12em; color: #30d158;
+    }
+    .goal-copy span {
+      display: block; margin-top: 6px; font-size: 18px; color: #8e8e93;
+    }
+    .vignette {
+      position: absolute; inset: 0; pointer-events: none; z-index: 50;
+      background: radial-gradient(circle at 50% 45%, transparent 45%, rgba(0,0,0,.045) 100%);
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+  <main class="stage" id="stage">
+    <div class="cam" id="cam">
+      <!-- METRIC -->
+      <div class="metric-wrap" id="metric">
+        <div class="card" id="card">
+          <div class="metric-name">Applications</div>
+          <div class="bars" id="bars"></div>
+          <div class="labels">
+            <div><div class="cap">Start</div><div class="val" id="start">0</div></div>
+            <div style="text-align:right"><div class="cap">Goal</div><div class="val" id="goalVal">100</div></div>
+          </div>
+          <div class="cta" id="cta">
+            <span class="cta-shine" id="ctaShine"></span>
+            <span id="ctaLabel">Accept a challenge</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROAD -->
+      <div class="road-wrap" id="road">
+        <div class="status" id="status">
+          <div class="status-icon" id="statusIcon">
+            <svg class="arrow" viewBox="0 0 24 24" fill="none">
+              <path d="M5 12h12M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <img id="statusImg" alt="" />
+          </div>
+          <div class="status-copy" id="statusCopy">Finding a way</div>
+        </div>
+
+        <div class="title" id="title"></div>
+
+        <svg class="map" id="map" viewBox="0 0 1080 760" aria-hidden="true">
+          <defs>
+            <linearGradient id="roadGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#64d2ff"/>
+              <stop offset="55%" stop-color="#0a84ff"/>
+              <stop offset="100%" stop-color="#30d158"/>
+            </linearGradient>
+            <filter id="roadGlow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="7" result="b"/>
+              <feFlood flood-color="#0a84ff" flood-opacity=".22"/>
+              <feComposite in2="b" operator="in"/>
+              <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="roadGlowGreen" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="7" result="b"/>
+              <feFlood flood-color="#30d158" flood-opacity=".25"/>
+              <feComposite in2="b" operator="in"/>
+              <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <path class="glow-road" id="roadGhost" stroke="#ececf0" stroke-width="26" d="" />
+          <path class="glow-road" id="roadFailA" stroke="#d1d1d6" stroke-width="16" stroke-dasharray="2 30" opacity="0" d="" />
+          <path class="glow-road" id="roadFailB" stroke="#d1d1d6" stroke-width="16" stroke-dasharray="2 30" opacity="0" d="" />
+          <path class="glow-road" id="roadLive" stroke="url(#roadGrad)" stroke-width="28" filter="url(#roadGlow)" d="" />
+        </svg>
+
+        <div class="pop" id="failA"><img src="./icon-fail.png" alt="" /></div>
+        <div class="pop" id="failB"><img src="./icon-fail.png" alt="" /></div>
+        <div class="pop" id="win"><img src="./icon-check.png" alt="" /></div>
+        <div class="goal-copy" id="goalCopy">
+          <strong>GOAL</strong>
+        </div>
+        <div class="truck" id="truck"><img src="./icon-truck.png" alt="" /></div>
+      </div>
+    </div>
+
+    <div class="bridge" id="bridge">
+      <div class="bloom" id="bloom"></div>
+      <div class="streak" id="streak"></div>
+      <div class="flash" id="flash"></div>
+    </div>
+    <div class="vignette" id="vignette"></div>
+  </main>
+
+  <script>
+    const FPS = 60;
+    // Metric 3.6s → bridge 1.1s → road 4.3s
+    const METRIC_END = 3600;
+    const BRIDGE_END = 4700;
+    const DURATION_MS = 9000;
+
+    const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const local = (ms, a, b) => clamp((ms - a) / Math.max(1, b - a));
+    const smooth = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+    const out = (t) => 1 - Math.pow(1 - t, 4);
+    const softBack = (t) => {
+      const c1 = 1.12, c3 = c1 + 1;
+      return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const stage = $("stage");
+    const cam = $("cam");
+    const metric = $("metric");
+    const card = $("card");
+    const barsEl = $("bars");
+    const startEl = $("start");
+    const goalVal = $("goalVal");
+    const cta = $("cta");
+    const ctaLabel = $("ctaLabel");
+    const ctaShine = $("ctaShine");
+    const bridge = $("bridge");
+    const bloom = $("bloom");
+    const streak = $("streak");
+    const flash = $("flash");
+    const road = $("road");
+    const status = $("status");
+    const statusIcon = $("statusIcon");
+    const statusImg = $("statusImg");
+    const statusCopy = $("statusCopy");
+    const title = $("title");
+    const map = $("map");
+    const roadGhost = $("roadGhost");
+    const roadFailA = $("roadFailA");
+    const roadFailB = $("roadFailB");
+    const roadLive = $("roadLive");
+    const truck = $("truck");
+    const failA = $("failA");
+    const failB = $("failB");
+    const win = $("win");
+    const goalCopy = $("goalCopy");
+    const vignette = $("vignette");
+
+    /* metric bars */
+    const BAR_N = 14;
+    const heights = Array.from({ length: BAR_N }, (_, i) => {
+      const t = i / (BAR_N - 1);
+      return Math.min(1, Math.max(0.22, 0.32 + 0.52 * Math.pow(t, 0.85) + 0.08 * Math.sin(i * 2.4)));
+    });
+    const barNodes = heights.map((h) => {
+      const el = document.createElement("div");
+      el.className = "bar";
+      el.style.height = `${(h * 100).toFixed(1)}%`;
+      barsEl.appendChild(el);
+      return el;
+    });
+    const rightHandle = Object.assign(document.createElement("div"), { className: "handle" });
+    barsEl.appendChild(rightHandle);
+
+    const TRACK_MAX = 250;
+    const pos = (v) => clamp(v / TRACK_MAX);
+
+    function renderMetricRange(hi) {
+      const p = pos(hi);
+      rightHandle.style.left = `${(p * 100).toFixed(3)}%`;
+      barNodes.forEach((el, i) => {
+        const c = (i + 0.5) / BAR_N;
+        el.classList.toggle("on", c <= p);
+      });
+      startEl.textContent = "0";
+      goalVal.textContent = String(Math.round(hi));
+    }
+
+    /* road path morphs — matching cubic count for smooth AE-style reshape */
+    const PATHS = {
+      // attempt up (dead end)
+      a: "M 70 500 C 170 490 250 460 320 430 C 400 400 460 330 520 280 C 560 250 590 245 610 240 C 620 238 625 236 630 235",
+      // attempt down (dead end)
+      b: "M 70 500 C 170 490 250 460 320 430 C 410 445 470 520 560 550 C 620 570 670 555 700 530 C 720 515 730 500 740 485",
+      // success — long winding climb
+      c: "M 70 500 C 170 490 250 460 320 430 C 420 420 500 390 580 370 C 700 340 760 270 830 220 C 890 180 940 145 990 110",
+      ghost: "M 70 500 C 170 490 250 460 320 430 C 420 420 500 390 580 370 C 700 340 760 270 830 220 C 890 180 940 145 990 110",
+      failStubA: "M 320 430 C 400 400 460 330 520 280 C 560 250 590 245 610 240 C 620 238 625 236 630 235",
+      failStubB: "M 320 430 C 410 445 470 520 560 550 C 620 570 670 555 700 530 C 720 515 730 500 740 485",
+    };
+
+    function setPath(el, d) { el.setAttribute("d", d); }
+
+    // crude but effective path morph for cubic paths with matching token counts
+    function morphD(d0, d1, t) {
+      const a = d0.match(/-?\d+\.?\d*/g).map(Number);
+      const b = d1.match(/-?\d+\.?\d*/g).map(Number);
+      if (a.length !== b.length) return t < 0.5 ? d0 : d1;
+      let i = 0;
+      return d0.replace(/-?\d+\.?\d*/g, () => {
+        const v = lerp(a[i], b[i], t);
+        i += 1;
+        return v.toFixed(2);
+      });
+    }
+
+    let lenLive = 1;
+    function prepareLive(d, { resetDraw = true } = {}) {
+      setPath(roadLive, d);
+      lenLive = Math.max(1, roadLive.getTotalLength());
+      roadLive.style.strokeDasharray = `${lenLive}`;
+      if (resetDraw) roadLive.style.strokeDashoffset = `${lenLive}`;
+    }
+
+    function drawLive(p) {
+      roadLive.style.strokeDashoffset = String(lenLive * (1 - clamp(p)));
+    }
+
+    function mapPointFromPathEl(pathEl, p = 1) {
+      const len = Math.max(1, pathEl.getTotalLength());
+      const t = clamp(p);
+      const pt = pathEl.getPointAtLength(len * t);
+      const pt2 = pathEl.getPointAtLength(Math.min(len, len * t + 3));
+      const mapR = map.getBoundingClientRect();
+      const stageR = stage.getBoundingClientRect();
+      return {
+        x: mapR.left - stageR.left + pt.x,
+        y: mapR.top - stageR.top + pt.y,
+        ang: Math.atan2(pt2.y - pt.y, pt2.x - pt.x) * 180 / Math.PI,
+      };
+    }
+
+    function pointLive(p) {
+      return mapPointFromPathEl(roadLive, p);
+    }
+
+    // Precompute fail endpoints from stub paths (no live-path mutation).
+    function failPoint(which) {
+      return mapPointFromPathEl(which === "a" ? roadFailA : roadFailB, 1);
+    }
+
+    function place(el, x, y) {
+      el.style.left = `${x.toFixed(2)}px`;
+      el.style.top = `${y.toFixed(2)}px`;
+    }
+
+    function setStatusArrow(color = "#0a84ff") {
+      statusIcon.className = "status-icon";
+      statusIcon.style.borderColor = color;
+      statusIcon.querySelector(".arrow").style.color = color;
+      statusCopy.style.color = color;
+    }
+    function setStatusImg(src, color) {
+      statusIcon.className = "status-icon mode-img";
+      statusImg.src = src;
+      statusCopy.style.color = color;
+    }
+
+    setPath(roadGhost, PATHS.ghost);
+    setPath(roadFailA, PATHS.failStubA);
+    setPath(roadFailB, PATHS.failStubB);
+    prepareLive(PATHS.a);
+
+    function renderAt(ms) {
+      ms = clamp(ms, 0, DURATION_MS);
+
+      // defaults
+      metric.style.opacity = "0";
+      road.style.opacity = "0";
+      bridge.style.opacity = "0";
+      cam.style.transform = "none";
+      cam.style.filter = "none";
+      vignette.style.opacity = "0";
+      truck.style.opacity = "0";
+      failA.style.opacity = "0";
+      failB.style.opacity = "0";
+      win.style.opacity = "0";
+      goalCopy.style.opacity = "0";
+      roadFailA.style.opacity = "0";
+      roadFailB.style.opacity = "0";
+      status.style.opacity = "0";
+      title.style.opacity = "0";
+
+      /* ========== ACT 1 — METRIC ========== */
+      if (ms <= METRIC_END + 80) {
+        const t = ms;
+        metric.style.opacity = "1";
+
+        // pop in
+        const pop = out(local(t, 0, 520));
+        metric.style.transform = `translateY(${lerp(28, 0, pop)}px) scale(${lerp(.9, 1, pop)})`;
+        metric.style.filter = pop < 1 ? `blur(${10 * (1 - pop)}px)` : "none";
+
+        // bars cascade
+        const barsT = smooth(local(t, 280, 900));
+        barNodes.forEach((el, i) => {
+          const delay = i / (BAR_N + 5) * 0.5;
+          const localT = clamp((barsT - delay) / 0.5);
+          el.style.transform = `scaleY(${0.15 + 0.85 * softBack(localT)})`;
+          el.style.opacity = String(0.3 + 0.7 * localT);
+        });
+
+        // CTA in
+        const ctaIn = softBack(smooth(local(t, 700, 1100)));
+        cta.style.opacity = String(Math.min(1, local(t, 700, 1000) * 1.4));
+        cta.style.transform = `translateY(${lerp(12, 0, ctaIn)}px) scale(${lerp(.97, 1, ctaIn)})`;
+
+        // slide 100 → 200
+        let hi = 100;
+        const slide = smooth(local(t, 1200, 2500));
+        if (slide > 0) {
+          hi = lerp(100, 200, slide);
+          goalVal.style.color = "#0a84ff";
+          cam.style.transform = `scale(${1 + 0.04 * slide}) translate(${-20 * slide}px, ${-6 * slide}px)`;
+        } else {
+          goalVal.style.color = "#f5f5f7";
+        }
+        renderMetricRange(hi);
+
+        // CTA press
+        ctaLabel.textContent = "Accept a challenge";
+        cta.style.background = "#0a84ff";
+        const shine = smooth(local(t, 2580, 3000));
+        if (shine > 0 && shine < 1) {
+          ctaShine.style.opacity = "1";
+          ctaShine.style.transform = `translateX(${-160 + 460 * shine}%) skewX(-14deg)`;
+        } else ctaShine.style.opacity = "0";
+
+        const press = out(local(t, 3000, 3180));
+        if (press > 0) {
+          cta.style.transform = `scale(${1 - 0.05 * press}) translateY(${2.5 * press}px)`;
+          cta.style.background = `color-mix(in srgb, #0a84ff ${100 - 25 * press}%, #003d80)`;
+        }
+        const release = softBack(smooth(local(t, 3180, 3420)));
+        if (local(t, 3180, 3420) > 0) {
+          cta.style.transform = `scale(${0.95 + 0.05 * release})`;
+          cta.style.background = "#0a84ff";
+        }
+        const flip = local(t, 3380, 3600);
+        if (flip > 0) {
+          if (flip < 0.45) {
+            ctaLabel.style.opacity = String(1 - flip / 0.45);
+            ctaLabel.style.transform = `translateY(${-8 * (flip / 0.45)}px)`;
+          } else {
+            ctaLabel.textContent = "✓  Challenge accepted";
+            const e = softBack((flip - 0.45) / 0.55);
+            ctaLabel.style.opacity = String(e);
+            ctaLabel.style.transform = `translateY(${10 * (1 - e)}px)`;
+          }
+        } else {
+          ctaLabel.style.opacity = "1";
+          ctaLabel.style.transform = "none";
+        }
+
+        // begin dissolve into bridge
+        const leave = smooth(local(t, 3480, METRIC_END));
+        if (leave > 0) {
+          metric.style.filter = `blur(${12 * leave}px)`;
+          metric.style.transform = `scale(${1 + 0.08 * leave})`;
+          cam.style.transform = `scale(${1.04 + 0.18 * leave}) translateY(${40 * leave}px)`;
+        }
+      }
+
+      /* ========== ACT 2 — AE BRIDGE ========== */
+      if (ms >= 3400 && ms <= BRIDGE_END + 40) {
+        const t = local(ms, 3400, BRIDGE_END);
+        bridge.style.opacity = "1";
+        vignette.style.opacity = String(0.5 * Math.sin(Math.PI * t));
+
+        // CTA optical bloom
+        const b = softBack(smooth(local(ms, 3450, 3900)));
+        bloom.style.opacity = String(Math.sin(Math.PI * clamp(b)) * 0.95);
+        bloom.style.transform = `scale(${lerp(0.4, 2.8, out(b))})`;
+
+        // soft optical wrap — keep scene readable (not a full white cut)
+        const f = smooth(local(ms, 3850, 4350));
+        flash.style.opacity = String(Math.sin(Math.PI * f) * 0.55);
+
+        // streak grows out of the CTA and bends into road language
+        const s = smooth(local(ms, 3920, 4680));
+        streak.style.opacity = String(clamp(s * 1.8) * (1 - 0.85 * out(local(ms, 4500, 4700))));
+        streak.style.width = `${lerp(40, 980, out(s))}px`;
+        streak.style.marginLeft = `${lerp(-20, -490, out(s))}px`;
+        streak.style.top = `${lerp(62, 58, s)}%`;
+        streak.style.transform = `rotate(${lerp(0, -16, smooth(s))}deg) scaleY(${lerp(1.1, 0.45, s)})`;
+        streak.style.filter = `blur(${lerp(0, 1.2, s)}px)`;
+
+        // metric fades hard under flash
+        if (ms < METRIC_END) {
+          metric.style.opacity = String(1 - smooth(local(ms, 3600, 4100)));
+        } else {
+          metric.style.opacity = "0";
+        }
+
+        // road rises through the flash
+        const roadIn = out(local(ms, 4200, BRIDGE_END));
+        road.style.opacity = String(roadIn);
+        road.style.filter = roadIn < 1 ? `blur(${14 * (1 - roadIn)}px)` : "none";
+        cam.style.transform = `scale(${lerp(1.22, 1, out(local(ms, 4300, BRIDGE_END)))})`;
+        cam.style.filter = `contrast(${lerp(1.08, 1, roadIn)})`;
+      }
+
+      /* ========== ACT 3 — ROAD ========== */
+      if (ms >= 4200) {
+        const t = ms - 4200; // local road clock
+        road.style.opacity = String(Math.max(Number(road.style.opacity) || 0, out(local(ms, 4200, 4600))));
+        road.style.filter = "none";
+        vignette.style.opacity = "0.55";
+        metric.style.opacity = "0";
+
+        const statusIn = out(local(t, 80, 420));
+        status.style.opacity = String(statusIn);
+        status.style.transform = `translateY(${lerp(-10, 0, statusIn)}px) scale(${lerp(.96, 1, statusIn)})`;
+
+        setStatusArrow("#0a84ff");
+        statusCopy.textContent = "TRY 1";
+
+        // Phase A — draw first attempt
+        let d = PATHS.a;
+        let drawP = 0;
+        let failAOn = false;
+        let failBOn = false;
+        const goalPoint = mapPointFromPathEl(roadGhost, 1);
+
+        // Keep the destination visible from the beginning.
+        place(win, goalPoint.x, goalPoint.y);
+        win.style.opacity = String(0.18 * statusIn);
+        win.style.transform = `scale(${lerp(.68, .78, statusIn)})`;
+
+        const aDraw = smooth(local(t, 350, 1100));
+        drawP = aDraw;
+        prepareLive(PATHS.a);
+        drawLive(aDraw);
+
+        if (t >= 1050) {
+          // fail A pop
+          const fa = softBack(smooth(local(t, 1050, 1280)));
+          failAOn = true;
+          const endA = failPoint("a");
+          place(failA, endA.x, endA.y);
+          failA.style.opacity = String(Math.min(1, fa * 1.5));
+          failA.style.transform = `scale(${lerp(.4, 1, fa)}) rotate(${lerp(-10, 0, fa)}deg)`;
+          setStatusImg("./icon-fail.png", "#ff453a");
+          statusCopy.textContent = "MISS";
+          roadFailA.style.opacity = String(Math.max(fa, t > 1280 ? 1 : fa));
+        }
+
+        // Morph A → B while truck retreats slightly then goes new way
+        if (t >= 1250) {
+          failAOn = true;
+          const morph = smooth(local(t, 1250, 1650));
+          d = morphD(PATHS.a, PATHS.b, morph);
+          prepareLive(d);
+          // retract then extend
+          const retract = smooth(local(t, 1250, 1450));
+          const extend = smooth(local(t, 1450, 2100));
+          if (t < 1450) drawP = 1 - 0.62 * retract;
+          else drawP = 0.38 + 0.62 * extend;
+          drawLive(drawP);
+          roadFailA.style.opacity = "1";
+          setStatusArrow("#ff9f0a");
+          statusCopy.textContent = "REROUTE";
+          if (t >= 1500) {
+            setStatusArrow("#0a84ff");
+            statusCopy.textContent = "TRY 2";
+          }
+        }
+
+        if (t >= 2050) {
+          failAOn = true;
+          const fb = softBack(smooth(local(t, 2050, 2280)));
+          failBOn = true;
+          prepareLive(PATHS.b);
+          drawLive(1);
+          const endB = failPoint("b");
+          place(failB, endB.x, endB.y);
+          failB.style.opacity = String(Math.min(1, fb * 1.5));
+          failB.style.transform = `scale(${lerp(.4, 1, fb)})`;
+          roadFailB.style.opacity = String(Math.max(fb, t > 2280 ? 1 : fb));
+          setStatusImg("./icon-fail.png", "#ff453a");
+          statusCopy.textContent = "MISS";
+        }
+
+        // Morph B → C success path
+        if (t >= 2250) {
+          failAOn = true;
+          failBOn = true;
+          const morph = smooth(local(t, 2250, 2750));
+          d = morphD(PATHS.b, PATHS.c, morph);
+          prepareLive(d);
+          const retract = smooth(local(t, 2250, 2450));
+          const extend = smooth(local(t, 2450, 3550));
+          if (t < 2450) drawP = 1 - 0.62 * retract;
+          else drawP = 0.38 + 0.62 * extend;
+          drawLive(drawP);
+          roadFailA.style.opacity = "1";
+          roadFailB.style.opacity = "1";
+          setStatusArrow("#0a84ff");
+          statusCopy.textContent = t < 2500 ? "REROUTE" : "FINAL ROUTE";
+          // warm camera push
+          cam.style.transform = `scale(${1 + 0.03 * extend}) translate(${-12 * extend}px, ${-8 * extend}px)`;
+        }
+
+        // Success
+        if (t >= 3450) {
+          failAOn = true;
+          failBOn = true;
+          prepareLive(PATHS.c, { resetDraw: false });
+          drawLive(1);
+          roadLive.style.stroke = "#30d158";
+          roadLive.setAttribute("stroke", "#30d158");
+          roadLive.setAttribute("filter", "url(#roadGlowGreen)");
+          const end = pointLive(1);
+          const winT = softBack(smooth(local(t, 3450, 3850)));
+          place(win, end.x, end.y);
+          win.style.opacity = String(Math.min(1, winT * 1.5));
+          win.style.transform = `scale(${lerp(.45, 1, winT)})`;
+          place(goalCopy, end.x - 150, end.y + 72);
+          goalCopy.style.opacity = String(out(local(t, 3600, 4000)));
+          goalCopy.style.transform = `translateY(${lerp(12, 0, out(local(t, 3600, 4000)))}px)`;
+          setStatusImg("./icon-check.png", "#30d158");
+          statusCopy.textContent = "DONE";
+          cam.style.transform = `scale(${lerp(1.03, 1, out(local(t, 3450, 4200)))})`;
+          drawP = 1;
+        } else {
+          roadLive.style.stroke = "";
+          roadLive.setAttribute("filter", "url(#roadGlow)");
+          roadLive.setAttribute("stroke", "url(#roadGrad)");
+        }
+
+        // Persist fail markers without mutating the live stroke
+        if (failAOn) {
+          const endA = failPoint("a");
+          place(failA, endA.x, endA.y);
+          failA.style.opacity = "1";
+          failA.style.transform = "scale(1)";
+          roadFailA.style.opacity = "1";
+        }
+        if (failBOn) {
+          const endB = failPoint("b");
+          place(failB, endB.x, endB.y);
+          failB.style.opacity = "1";
+          failB.style.transform = "scale(1)";
+          roadFailB.style.opacity = "1";
+        }
+
+        // truck follows live path
+        const follow = Math.max(0.02, drawP);
+        const marker = pointLive(follow);
+        place(truck, marker.x, marker.y);
+        const truckIn = out(local(t, 300, 700));
+        let truckOp = truckIn;
+        if (t >= 3450) truckOp = 1 - out(local(t, 3550, 3900));
+        truck.style.opacity = String(truckOp);
+        const wobble = Math.sin(t * 0.01) * 1.5;
+        truck.style.transform = `rotate(${(marker.ang + wobble).toFixed(2)}deg) scale(${t >= 3450 ? lerp(1, .85, out(local(t, 3450, 3850))) : 1})`;
+        truck.style.filter = `blur(${t > 1400 && t < 1700 ? 0.4 : 0}px)`;
+      }
+    }
+
+    window.__FPS = FPS;
+    window.__DURATION_MS = DURATION_MS;
+    window.__TOTAL_FRAMES = Math.round((DURATION_MS / 1000) * FPS);
+    window.__renderFrame = (i) => renderAt((i / FPS) * 1000);
+    window.__seek = renderAt;
+    window.__animReady = true;
+    window.__animDone = false;
+
+    if (new URLSearchParams(location.search).has("render")) {
+      renderAt(0);
+    } else {
+      let start;
+      const tick = (now) => {
+        start ??= now;
+        const ms = now - start;
+        renderAt(ms);
+        if (ms < DURATION_MS) requestAnimationFrame(tick);
+        else { renderAt(DURATION_MS); window.__animDone = true; }
+      };
+      requestAnimationFrame(tick);
+    }
+  </script>
+</body>
+</html>

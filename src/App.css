@@ -50,6 +50,13 @@
     --color-black: #000000;
     --color-gray: #98989f;
     --color-white: #f5f5f7;
+    /* HeroUI kit token aliases (screens/) — mapped onto existing palette */
+    --color-content1: var(--card);
+    --color-content2: var(--secondary);
+    --color-divider: var(--border);
+    --color-default-400: #8e8e93;
+    --color-default-500: var(--muted-foreground);
+    --color-default-600: #aeaeb2;
 }
 
 :root {
@@ -68,8 +75,8 @@
     --accent: #3a3a3c;
     --accent-foreground: #f5f5f7;
     --destructive: #ff453a;
-    --border: rgba(84, 84, 88, 0.65);
-    --input: rgba(84, 84, 88, 0.65);
+    --border: rgba(255, 255, 255, 0.08);
+    --input: rgba(255, 255, 255, 0.1);
     --ring: #0a84ff;
     --field: #2c2c2e;
     --chart-1: #30d158;
@@ -77,15 +84,14 @@
     --chart-3: #ff9f0a;
     --chart-4: #bf5af2;
     --chart-5: #98989f;
-    --radius: 0.75rem;
-    /* Apple-style sidebar — between canvas and pure black. */
-    --sidebar: #232325;
+    --radius: 0.875rem;
+    --sidebar: #1c1c1e;
     --sidebar-foreground: #f5f5f7;
     --sidebar-primary: #0a84ff;
     --sidebar-primary-foreground: #ffffff;
     --sidebar-accent: #2c2c2e;
     --sidebar-accent-foreground: #f5f5f7;
-    --sidebar-border: rgba(84, 84, 88, 0.5);
+    --sidebar-border: rgba(255, 255, 255, 0.08);
     --sidebar-ring: #0a84ff;
 }
 
@@ -105,8 +111,8 @@
     --accent: #3a3a3c;
     --accent-foreground: #f5f5f7;
     --destructive: #ff453a;
-    --border: rgba(84, 84, 88, 0.65);
-    --input: rgba(84, 84, 88, 0.65);
+    --border: rgba(255, 255, 255, 0.08);
+    --input: rgba(255, 255, 255, 0.1);
     --ring: #0a84ff;
     --field: #2c2c2e;
     --chart-1: #30d158;
@@ -114,13 +120,13 @@
     --chart-3: #ff9f0a;
     --chart-4: #bf5af2;
     --chart-5: #98989f;
-    --sidebar: #232325;
+    --sidebar: #1c1c1e;
     --sidebar-foreground: #f5f5f7;
     --sidebar-primary: #0a84ff;
     --sidebar-primary-foreground: #ffffff;
     --sidebar-accent: #2c2c2e;
     --sidebar-accent-foreground: #f5f5f7;
-    --sidebar-border: rgba(84, 84, 88, 0.5);
+    --sidebar-border: rgba(255, 255, 255, 0.08);
     --sidebar-ring: #0a84ff;
 }
 
@@ -287,4 +293,39 @@
   .font-logo {
     letter-spacing: -0.03em;
   }
+}
+
+/* Screen-kit comfort utilities (HeroUI Pro layout language, no new deps) */
+@utility rounded-large {
+  border-radius: 0.875rem;
+}
+@utility shadow-small {
+  box-shadow: 0 4px 14px 0 rgb(0 0 0 / 0.28);
+}
+@utility text-tiny {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+@utility text-small {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+@utility text-large {
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+}
+@utility bg-content1 {
+  background-color: var(--card);
+}
+@utility border-divider {
+  border-color: var(--border);
+}
+@utility text-default-400 {
+  color: #8e8e93;
+}
+@utility text-default-500 {
+  color: var(--muted-foreground);
+}
+@utility text-default-600 {
+  color: #aeaeb2;
 }

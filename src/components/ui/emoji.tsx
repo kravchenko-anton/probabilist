@@ -17,6 +17,8 @@ import inboxTray from "emoji-datasource-apple/img/apple/64/1f4e5.png"
 import closedBook from "emoji-datasource-apple/img/apple/64/1f4d5.png"
 import checkMarkButton from "emoji-datasource-apple/img/apple/64/2705.png"
 import wastebasket from "emoji-datasource-apple/img/apple/64/1f5d1-fe0f.png"
+import wearyFace from "emoji-datasource-apple/img/apple/64/1f629.png"
+import smilingFaceWithSunglasses from "emoji-datasource-apple/img/apple/64/1f60e.png"
 import { cn } from "@/lib/utils"
 
 /** Unicode emoji -> Apple artwork (emoji-datasource-apple), keyed by the literal glyph. */
@@ -40,6 +42,8 @@ const EMOJI_IMAGES: Record<string, string> = {
   "📕": closedBook,
   "✅": checkMarkButton,
   "🗑️": wastebasket,
+  "😩": wearyFace,
+  "😎": smilingFaceWithSunglasses,
 }
 
 interface EmojiProps {

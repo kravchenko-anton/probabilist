@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Metric plate — 60fps</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 1080px;
+      height: 1080px;
+      overflow: hidden;
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+    }
+
+    /* Preview only — render mode stays transparent for alpha export */
+    html:not(.render) body,
+    html:not(.render) .stage {
+      background: #ffffff;
+    }
+
+    .stage {
+      position: relative;
+      width: 1080px;
+      height: 1080px;
+      display: grid;
+      place-items: center;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    .camera {
+      transform-origin: 50% 50%;
+      will-change: transform;
+      backface-visibility: hidden;
+    }
+
+    .popup {
+      width: 820px;
+      transform-origin: 50% 50%;
+      will-change: transform, opacity, filter;
+      opacity: 0;
+      transform: translate3d(0, 36px, 0) scale(0.9);
+      filter: blur(10px);
+      backface-visibility: hidden;
+    }
+
+    .card {
+      background: #2c2c2e;
+      border-radius: 36px;
+      padding: 40px 40px 28px;
+      border: 1px solid rgba(84, 84, 88, 0.55);
+      color: #f5f5f7;
+      position: relative;
+      overflow: hidden;
+      will-change: transform;
+      backface-visibility: hidden;
+    }
+
+    .metric-name {
+      position: relative;
+      z-index: 1;
+      font-size: 54px;
+      font-weight: 700;
+      letter-spacing: -0.048em;
+      line-height: 1;
+      color: #f5f5f7;
+      margin-bottom: 56px;
+    }
+
+    .bars {
+      position: relative;
+      z-index: 1;
+      height: 132px;
+      display: flex;
+      align-items: flex-end;
+      gap: 9px;
+      padding: 4px 0 0;
+      margin-bottom: 10px;
+    }
+
+    .bar {
+      flex: 1 1 0;
+      min-width: 0;
+      border-radius: 7px;
+      background: rgba(244, 243, 242, 0.1);
+      transform-origin: bottom center;
+      will-change: transform, background-color, opacity;
+      backface-visibility: hidden;
+    }
+    .bar.active { background: rgba(244, 243, 242, 0.55); }
+
+    .handle {
+      position: absolute;
+      top: -2px;
+      bottom: 0;
+      width: 3px;
+      margin-left: -1.5px;
+      border-radius: 999px;
+      background: #f5f5f7;
+      will-change: left, transform, opacity;
+      pointer-events: none;
+      backface-visibility: hidden;
+    }
+    .handle.active { background: #0a84ff; }
+
+    .labels {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 32px;
+    }
+    .label-block { display: flex; flex-direction: column; gap: 4px; }
+    .label-block.end { align-items: flex-end; }
+
+    .caption {
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #98989f;
+    }
+    .value {
+      font-size: 42px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.04em;
+      color: #f5f5f7;
+      line-height: 1;
+      min-width: 2.5ch;
+      will-change: transform, color;
+      backface-visibility: hidden;
+    }
+
+    .cta {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 84px;
+      border-radius: 21px;
+      border: 1px solid transparent;
+      background: #0a84ff;
+      color: #ffffff;
+      font-size: 29px;
+      font-weight: 750;
+      letter-spacing: -0.03em;
+      transform-origin: 50% 50%;
+      will-change: transform, background, opacity;
+      opacity: 0;
+      transform: translate3d(0, 12px, 0) scale(0.97);
+      overflow: hidden;
+      backface-visibility: hidden;
+    }
+    .cta.pressed { background: #0066d6; }
+
+    .cta-label {
+      position: relative;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      will-change: transform, opacity, filter;
+    }
+    .cta-ripple {
+      position: absolute;
+      z-index: 1;
+      width: 80px;
+      height: 80px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.28);
+      opacity: 0;
+      transform: scale(0);
+      pointer-events: none;
+      will-change: transform, opacity;
+    }
+    .cta-shine {
+      position: absolute;
+      z-index: 1;
+      top: -30%;
+      bottom: -30%;
+      width: 34%;
+      left: 0;
+      background: linear-gradient(
+        100deg,
+        transparent 10%,
+        rgba(255, 255, 255, 0.28) 50%,
+        transparent 90%
+      );
+      transform: translateX(-160%) skewX(-14deg);
+      pointer-events: none;
+      opacity: 0;
+      will-change: transform, opacity;
+    }
+
+    .touch {
+      position: absolute;
+      z-index: 50;
+      width: 64px;
+      height: 64px;
+      margin: -32px 0 0 -32px;
+      border-radius: 999px;
+      background: rgba(245, 245, 247, 0.32);
+      border: 1.5px solid rgba(245, 245, 247, 0.55);
+      opacity: 0;
+      pointer-events: none;
+      will-change: left, top, transform, opacity;
+      backface-visibility: hidden;
+    }
+    .touch::after {
+      content: "";
+      position: absolute;
+      inset: 18px;
+      border-radius: 999px;
+      background: rgba(245, 245, 247, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="camera" id="camera">
+      <div class="popup" id="popup">
+        <div class="card" id="card">
+          <div class="metric-name" id="title">Applications</div>
+          <div class="bars" id="bars"></div>
+          <div class="labels">
+            <div class="label-block">
+              <div class="caption">Start</div>
+              <div class="value" id="start">0</div>
+            </div>
+            <div class="label-block end">
+              <div class="caption">Goal</div>
+              <div class="value" id="goal">100</div>
+            </div>
+          </div>
+          <button class="cta" id="cta" type="button">
+            <span class="cta-ripple" id="cta-ripple"></span>
+            <span class="cta-shine" id="cta-shine"></span>
+            <span class="cta-label" id="cta-label">Accept a challenge</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="touch" id="touch"></div>
+  </div>
+
+  <script>
+    const FPS = 60;
+    // Ends shortly after "Challenge accepted" lands — no post-accept celebration.
+    const DURATION_MS = 4000;
+    const BAR_COUNT = 14;
+    const TRACK_MAX = 250;
+    const SLIDE_FROM = 100;
+    const SLIDE_TO = 200;
+
+    const BAR_HEIGHTS = Array.from({ length: BAR_COUNT }, (_, i) => {
+      const t = i / (BAR_COUNT - 1);
+      const rise = 0.32 + 0.52 * Math.pow(t, 0.85);
+      const wiggle = 0.09 * Math.sin(i * 2.7 + 1.2);
+      return Math.min(1, Math.max(0.22, rise + wiggle));
+    });
+
+    const valueToPos = (v) => Math.min(1, Math.max(0, v / TRACK_MAX));
+    const clamp01 = (t) => Math.min(1, Math.max(0, t));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const smoothstep = (t) => t * t * (3 - 2 * t);
+    const smootherstep = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+
+    // Soft AE-style curves (less snappy than expo / hard back).
+    const easeOutQuint = (t) => 1 - Math.pow(1 - t, 5);
+    const easeInOutQuint = (t) =>
+      t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+    const easeOutSoftBack = (t) => {
+      const c1 = 1.2;
+      const c3 = c1 + 1;
+      return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    };
+
+    const barsEl = document.getElementById("bars");
+    const barNodes = BAR_HEIGHTS.map((h) => {
+      const el = document.createElement("div");
+      el.className = "bar";
+      el.style.height = `${(h * 100).toFixed(2)}%`;
+      barsEl.appendChild(el);
+      return el;
+    });
+
+    const leftHandle = Object.assign(document.createElement("div"), { className: "handle" });
+    const rightHandle = Object.assign(document.createElement("div"), { className: "handle active" });
+    barsEl.append(leftHandle, rightHandle);
+
+    const stage = document.getElementById("stage");
+    const camera = document.getElementById("camera");
+    const goalEl = document.getElementById("goal");
+    const startEl = document.getElementById("start");
+    const popup = document.getElementById("popup");
+    const card = document.getElementById("card");
+    const cta = document.getElementById("cta");
+    const ctaLabel = document.getElementById("cta-label");
+    const ctaRipple = document.getElementById("cta-ripple");
+    const ctaShine = document.getElementById("cta-shine");
+    const touch = document.getElementById("touch");
+
+    function setCamera(scale, x, y) {
+      camera.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
+    }
+
+    function stagePoint(el, fx = 0.5, fy = 0.5) {
+      const r = el.getBoundingClientRect();
+      const s = stage.getBoundingClientRect();
+      return { x: r.left - s.left + r.width * fx, y: r.top - s.top + r.height * fy };
+    }
+
+    function setTouch(x, y, scale = 1, opacity = 0) {
+      touch.style.left = `${x.toFixed(2)}px`;
+      touch.style.top = `${y.toFixed(2)}px`;
+      touch.style.transform = `translate3d(0,0,0) scale(${scale.toFixed(4)})`;
+      touch.style.opacity = String(opacity);
+    }
+
+    function renderRange(lo, hi, { boost = false, energy = 0, barScaleExtra = null } = {}) {
+      const p0 = valueToPos(lo);
+      const p1 = valueToPos(hi);
+      leftHandle.style.left = `${(p0 * 100).toFixed(4)}%`;
+      rightHandle.style.left = `${(p1 * 100).toFixed(4)}%`;
+      rightHandle.style.transform = boost
+        ? `scaleY(${(1.04 + energy * 0.06).toFixed(4)}) scaleX(${(1 + energy * 1.1).toFixed(4)})`
+        : "scaleY(1) scaleX(1)";
+
+      barNodes.forEach((el, i) => {
+        const center = (i + 0.5) / BAR_COUNT;
+        el.classList.toggle("active", center >= p0 && center <= p1);
+        let sy = 1;
+        if (barScaleExtra) sy = barScaleExtra(i, center, p1);
+        else if (boost) {
+          const proximity = Math.exp(-(((center - p1) / 0.1) ** 2));
+          sy = 1 + (0.12 + energy * 0.08) * proximity;
+        }
+        el.style.transform = `scaleY(${sy.toFixed(4)})`;
+      });
+
+      startEl.textContent = String(lo);
+      goalEl.textContent = String(Math.round(hi));
+    }
+
+    function localT(ms, start, end) {
+      return clamp01((ms - start) / (end - start));
+    }
+
+    // Absolute timeline (ms) — compressed to 4.0s, same beats.
+    const TL = {
+      popIn: [0, 420],
+      bars: [220, 700],
+      ctaIn: [560, 880],
+      touchLand: [920, 1160],
+      touchPress: [1160, 1280],
+      slide: [1280, 2320],
+      touchLift: [2320, 2500],
+      goalSettle: [2320, 2560],
+      toButton: [2540, 3000],
+      press: [3000, 3120],
+      ripple: [3040, 3340],
+      release: [3120, 3380],
+      labelOut: [3380, 3540],
+      labelIn: [3540, 3760],
+      holdEnd: [3760, DURATION_MS],
+    };
+
+    let acceptedLabel = false;
+
+    function resetStatic() {
+      acceptedLabel = false;
+      ctaLabel.textContent = "Accept a challenge";
+      ctaLabel.style.opacity = "1";
+      ctaLabel.style.transform = "none";
+      ctaLabel.style.filter = "none";
+      cta.classList.remove("pressed");
+      cta.style.background = "#0a84ff";
+      ctaRipple.style.opacity = "0";
+      ctaRipple.style.transform = "scale(0)";
+      ctaShine.style.opacity = "0";
+      ctaShine.style.transform = "translateX(-160%) skewX(-14deg)";
+      goalEl.style.transform = "";
+      goalEl.style.color = "";
+      card.style.transform = "";
+      barNodes.forEach((el) => {
+        el.style.background = "";
+        el.style.opacity = "1";
+        el.style.transform = "scaleY(1)";
+      });
+    }
+
+    function renderAt(ms) {
+      ms = Math.min(DURATION_MS, Math.max(0, ms));
+      resetStatic();
+
+      // --- defaults ---
+      let camScale = 1.08;
+      let camX = 0;
+      let camY = -14;
+      let popupOpacity = 0;
+      let popupY = 36;
+      let popupScale = 0.9;
+      let popupBlur = 10;
+      let handleOpacity = 0;
+      let ctaOpacity = 0;
+      let ctaY = 12;
+      let ctaScale = 0.97;
+      let goalValue = SLIDE_FROM;
+      let boost = false;
+      let energy = 0;
+      let barCascade = null;
+      let touchX = 540;
+      let touchY = 540;
+      let touchScale = 1;
+      let touchOpacity = 0;
+      let cardY = 0;
+      let cardScale = 1;
+      let goalScale = 1;
+      let goalHot = 0;
+      let ctaBgMix = 0;
+      let ctaPressY = 0;
+      let labelOpacity = 1;
+      let labelY = 0;
+      let labelScale = 1;
+      let labelBlur = 0;
+      let rippleScale = 0;
+      let rippleOpacity = 0;
+      let shineX = -160;
+      let shineOpacity = 0;
+      let showAccepted = false;
+
+      // Pop in
+      {
+        const t = localT(ms, ...TL.popIn);
+        if (t > 0) {
+          const e = easeOutQuint(t);
+          popupOpacity = Math.min(1, t * 1.35);
+          popupY = 36 * (1 - e);
+          popupScale = 0.9 + 0.1 * e;
+          popupBlur = 10 * (1 - e);
+          camScale = lerp(1.08, 1.0, e);
+          camY = lerp(-14, 0, e);
+        }
+        if (t >= 1) {
+          popupOpacity = 1;
+          popupY = 0;
+          popupScale = 1;
+          popupBlur = 0;
+          camScale = 1;
+          camY = 0;
+        }
+      }
+
+      // Bars cascade
+      {
+        const t = localT(ms, ...TL.bars);
+        if (ms < TL.bars[0]) {
+          barCascade = (i) => ({ sy: 0.12, op: 0.25 });
+          handleOpacity = 0;
+        } else if (t < 1) {
+          barCascade = (i) => {
+            const delay = (i / (BAR_COUNT + 6)) * 0.55;
+            const local = clamp01((t - delay) / 0.45);
+            const e = easeOutSoftBack(smoothstep(local));
+            return { sy: 0.12 + 0.88 * e, op: 0.25 + 0.75 * local };
+          };
+          handleOpacity = easeOutCubic(clamp01((t - 0.55) / 0.45));
+        } else {
+          handleOpacity = 1;
+        }
+      }
+
+      // CTA in
+      {
+        const t = localT(ms, ...TL.ctaIn);
+        if (t > 0) {
+          const e = easeOutSoftBack(smootherstep(t));
+          ctaOpacity = Math.min(1, t * 1.35);
+          ctaY = 12 * (1 - e);
+          ctaScale = 0.97 + 0.03 * e;
+        }
+        if (t >= 1) {
+          ctaOpacity = 1;
+          ctaY = 0;
+          ctaScale = 1;
+        }
+      }
+
+      // Need layout for handle / button after transforms applied later —
+      // first pass sets visual state for slide values, then we place touch.
+
+      // Slide value curve
+      {
+        const tLand = localT(ms, ...TL.touchLand);
+        const tPress = localT(ms, ...TL.touchPress);
+        const tSlide = localT(ms, ...TL.slide);
+        const tLift = localT(ms, ...TL.touchLift);
+
+        if (ms >= TL.touchLand[0]) touchOpacity = Math.min(1, tLand * 1.4);
+
+        if (tSlide > 0 && tSlide < 1) {
+          // Long ease-in-out with tiny soft settle — no hard overshoot kick.
+          const e = easeInOutQuint(tSlide);
+          const settle = tSlide > 0.88
+            ? Math.sin(((tSlide - 0.88) / 0.12) * Math.PI) * 0.012
+            : 0;
+          goalValue = SLIDE_FROM + (SLIDE_TO - SLIDE_FROM) * Math.min(1, e + settle);
+          // Energy from smooth derivative approximation.
+          const ePrev = easeInOutQuint(Math.max(0, tSlide - 1 / 60));
+          energy = Math.min(1, Math.abs(e - ePrev) * 18);
+          boost = true;
+          const progress = (goalValue - SLIDE_FROM) / (SLIDE_TO - SLIDE_FROM);
+          camScale = 1 + 0.055 * easeInOutQuint(tSlide);
+          camX = -28 * progress;
+          camY = -8 * progress;
+          cardY = -2.5 * progress;
+          goalHot = 1;
+        } else if (ms >= TL.slide[1]) {
+          goalValue = SLIDE_TO;
+          boost = false;
+          energy = 0;
+        }
+
+        if (ms >= TL.goalSettle[0] && ms < TL.toButton[0]) {
+          const ts = localT(ms, ...TL.goalSettle);
+          goalScale = 1 + 0.07 * (1 - easeOutQuint(ts));
+          goalHot = 1 - easeOutQuint(ts);
+          if (ms >= TL.slide[1]) {
+            camScale = lerp(1.055, 1.02, easeOutQuint(localT(ms, TL.slide[1], TL.toButton[0])));
+            camX = lerp(-28, -8, easeOutQuint(localT(ms, TL.slide[1], TL.toButton[0])));
+            camY = lerp(-8, -4, easeOutQuint(localT(ms, TL.slide[1], TL.toButton[0])));
+          }
+        }
+
+        // Touch choreography uses post-layout points; stash phase flags.
+        window.__touchPhase = {
+          ms, tLand, tPress, tSlide, tLift,
+          inLand: ms >= TL.touchLand[0] && ms < TL.touchPress[0],
+          inPress: ms >= TL.touchPress[0] && ms < TL.slide[0],
+          inSlide: ms >= TL.slide[0] && ms < TL.slide[1],
+          inLift: ms >= TL.touchLift[0] && ms < TL.toButton[0],
+          inToButton: ms >= TL.toButton[0] && ms < TL.press[0],
+          inBtnPress: ms >= TL.press[0] && ms < TL.release[1],
+          afterBtn: ms >= TL.release[1],
+        };
+      }
+
+      // Button interaction
+      {
+        const tTo = localT(ms, ...TL.toButton);
+        const tPress = localT(ms, ...TL.press);
+        const tRipple = localT(ms, ...TL.ripple);
+        const tRel = localT(ms, ...TL.release);
+        const tOut = localT(ms, ...TL.labelOut);
+        const tIn = localT(ms, ...TL.labelIn);
+
+        if (ms >= TL.toButton[0]) {
+          const e = easeInOutQuint(tTo);
+          shineOpacity = tTo > 0 && tTo < 1 ? 1 : 0;
+          shineX = -160 + 460 * e;
+          if (tTo >= 1) shineOpacity = 0;
+          camScale = lerp(1.02, 1.1, e);
+          camX = lerp(-8, 0, e);
+          camY = lerp(-4, -40, e);
+          touchOpacity = Math.min(1, 0.7 + tTo);
+        }
+
+        if (ms >= TL.press[0] && ms < TL.release[0]) {
+          const e = easeOutCubic(tPress);
+          ctaScale = 1 - 0.045 * e;
+          ctaPressY = 2.5 * e;
+          ctaBgMix = e;
+          if (e > 0.5) cta.classList.add("pressed");
+        }
+
+        if (ms >= TL.ripple[0] && ms < TL.ripple[1]) {
+          const e = easeOutQuint(tRipple);
+          rippleScale = 0.2 + 8.5 * e;
+          rippleOpacity = 1 - e;
+          if (ms < TL.release[0]) cta.classList.add("pressed");
+        }
+
+        if (ms >= TL.release[0] && ms < TL.labelOut[0]) {
+          const e = easeOutSoftBack(smootherstep(tRel));
+          ctaScale = 0.955 + 0.045 * e;
+          ctaPressY = 2.5 * (1 - e);
+          ctaBgMix = tRel < 0.3 ? 1 - tRel / 0.3 : 0;
+          if (tRel < 0.25) cta.classList.add("pressed");
+          touchOpacity = 1 - easeOutQuint(tRel);
+        }
+
+        if (ms >= TL.labelOut[0] && ms < TL.labelIn[0]) {
+          const e = easeOutCubic(tOut);
+          labelOpacity = 1 - e;
+          labelY = -8 * e;
+          labelBlur = 3 * e;
+          showAccepted = false;
+          touchOpacity = 0;
+          camScale = 1.1;
+          camY = -40;
+        }
+
+        // Label lands on "Challenge accepted", then hold still — no bar wave / camera outro.
+        if (ms >= TL.labelIn[0]) {
+          showAccepted = true;
+          touchOpacity = 0;
+          camScale = 1.1;
+          camX = 0;
+          camY = -40;
+          if (ms < TL.holdEnd[0]) {
+            const e = easeOutSoftBack(smootherstep(tIn));
+            labelOpacity = Math.min(1, tIn * 1.4);
+            labelY = 10 * (1 - e);
+            labelScale = 0.97 + 0.03 * e;
+            labelBlur = 3 * (1 - Math.min(1, tIn * 1.3));
+          } else {
+            labelOpacity = 1;
+            labelY = 0;
+            labelScale = 1;
+            labelBlur = 0;
+          }
+        }
+      }
+
+      // Apply transforms (camera / card first so layout points are correct)
+      setCamera(camScale, camX, camY);
+      popup.style.opacity = String(popupOpacity);
+      popup.style.transform = `translate3d(0, ${popupY.toFixed(2)}px, 0) scale(${popupScale.toFixed(4)})`;
+      popup.style.filter = popupBlur > 0.05 ? `blur(${popupBlur.toFixed(2)}px)` : "none";
+      card.style.transform = `translate3d(0, ${cardY.toFixed(2)}px, 0) scale(${cardScale.toFixed(4)})`;
+
+      leftHandle.style.opacity = String(handleOpacity);
+      rightHandle.style.opacity = String(handleOpacity);
+
+      if (barCascade) {
+        barNodes.forEach((el, i) => {
+          const { sy, op } = barCascade(i);
+          el.style.transform = `scaleY(${sy.toFixed(4)})`;
+          el.style.opacity = String(op);
+          el.classList.toggle("active", false);
+        });
+        renderRange(0, goalValue, { boost: false });
+        // re-apply cascade after renderRange
+        barNodes.forEach((el, i) => {
+          const { sy, op } = barCascade(i);
+          el.style.transform = `scaleY(${sy.toFixed(4)})`;
+          el.style.opacity = String(op);
+        });
+        leftHandle.style.opacity = String(handleOpacity);
+        rightHandle.style.opacity = String(handleOpacity);
+      } else {
+        renderRange(0, goalValue, { boost, energy });
+        barNodes.forEach((el) => { el.style.opacity = "1"; });
+      }
+
+      goalEl.style.transform = `scale(${goalScale.toFixed(4)})`;
+      goalEl.style.color = goalHot > 0.05
+        ? `color-mix(in srgb, #f5f5f7 ${100 - goalHot * 100}%, #0a84ff)`
+        : "#f5f5f7";
+
+      cta.style.opacity = String(ctaOpacity);
+      cta.style.transform = `translate3d(0, ${(ctaY + ctaPressY).toFixed(2)}px, 0) scale(${ctaScale.toFixed(4)})`;
+      if (ctaBgMix > 0) {
+        cta.style.background = `color-mix(in srgb, #0a84ff ${100 - 28 * ctaBgMix}%, #003d80)`;
+      }
+
+      if (showAccepted) ctaLabel.textContent = "✓  Challenge accepted";
+      else ctaLabel.textContent = "Accept a challenge";
+      ctaLabel.style.opacity = String(labelOpacity);
+      ctaLabel.style.transform = `translate3d(0, ${labelY.toFixed(2)}px, 0) scale(${labelScale.toFixed(4)})`;
+      ctaLabel.style.filter = labelBlur > 0.05 ? `blur(${labelBlur.toFixed(2)}px)` : "none";
+
+      ctaRipple.style.transform = `scale(${rippleScale.toFixed(4)})`;
+      ctaRipple.style.opacity = String(rippleOpacity);
+      ctaShine.style.opacity = String(shineOpacity);
+      ctaShine.style.transform = `translateX(${shineX.toFixed(2)}%) skewX(-14deg)`;
+
+      // Touch placement after layout
+      const phase = window.__touchPhase;
+      const handlePt = stagePoint(rightHandle, 0.5, 0.45);
+      const btnPt = stagePoint(cta, 0.5, 0.5);
+
+      if (phase.inLand) {
+        const e = easeOutQuint(phase.tLand);
+        touchX = handlePt.x;
+        touchY = handlePt.y - 36 * (1 - e);
+        touchScale = lerp(1.35, 1.0, e);
+        touchOpacity = Math.min(1, phase.tLand * 1.5);
+      } else if (phase.inPress) {
+        const e = easeOutCubic(phase.tPress);
+        touchX = handlePt.x;
+        touchY = handlePt.y;
+        touchScale = lerp(1.0, 0.84, e);
+        touchOpacity = 1;
+      } else if (phase.inSlide) {
+        touchX = handlePt.x - energy * 6;
+        touchY = handlePt.y;
+        touchScale = 0.84;
+        touchOpacity = 1;
+      } else if (phase.inLift) {
+        const e = easeOutQuint(phase.tLift);
+        touchX = handlePt.x;
+        touchY = handlePt.y - 22 * e;
+        touchScale = lerp(0.84, 1.05, e);
+        touchOpacity = 1 - e * 0.25;
+      } else if (phase.inToButton) {
+        const e = easeInOutQuint(localT(ms, ...TL.toButton));
+        const liftY = handlePt.y - 22;
+        touchX = lerp(handlePt.x, btnPt.x, e);
+        touchY = lerp(liftY, btnPt.y - 4, e) - 28 * Math.sin(Math.PI * e) * 0.35;
+        touchScale = 1.05;
+        touchOpacity = Math.min(1, 0.75 + e);
+      } else if (phase.inBtnPress) {
+        const tP = localT(ms, ...TL.press);
+        const tR = localT(ms, ...TL.release);
+        if (ms < TL.release[0]) {
+          const e = easeOutCubic(tP);
+          touchX = btnPt.x;
+          touchY = btnPt.y - 4 + 3 * e;
+          touchScale = lerp(1.05, 0.8, e);
+          touchOpacity = 1;
+        } else {
+          const e = easeOutQuint(tR);
+          touchX = btnPt.x;
+          touchY = btnPt.y - 2 - 44 * e;
+          touchScale = lerp(0.8, 1.15, e);
+          touchOpacity = 1 - e;
+        }
+      } else {
+        touchOpacity = 0;
+      }
+
+      setTouch(touchX, touchY, touchScale, touchOpacity);
+    }
+
+    // Public API for recorder
+    window.__FPS = FPS;
+    window.__DURATION_MS = DURATION_MS;
+    window.__TOTAL_FRAMES = Math.round((DURATION_MS / 1000) * FPS);
+    window.__seek = (ms) => renderAt(ms);
+    window.__renderFrame = (i) => renderAt((i / FPS) * 1000);
+    window.__animDone = false;
+    window.__animReady = true;
+
+    const params = new URLSearchParams(location.search);
+    const renderMode = params.has("render");
+    if (renderMode) document.documentElement.classList.add("render");
+
+    if (renderMode) {
+      renderAt(0);
+    } else {
+      // Preview playback at real-time 60fps clock.
+      let start = null;
+      function tick(now) {
+        if (start == null) start = now;
+        const ms = now - start;
+        renderAt(ms);
+        if (ms < DURATION_MS) requestAnimationFrame(tick);
+        else {
+          renderAt(DURATION_MS);
+          window.__animDone = true;
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+  </script>
+</body>
+</html>

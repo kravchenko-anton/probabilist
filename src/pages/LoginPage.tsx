@@ -7,7 +7,7 @@ export function LoginPage() {
 
 	if (loading) {
 		return (
-			<div className="flex h-dvh w-full items-center justify-center bg-background text-sm text-muted-foreground">
+			<div className="flex h-dvh w-full items-center justify-center bg-background text-small text-default-500">
 				Loading…
 			</div>
 		)
@@ -19,9 +19,7 @@ export function LoginPage() {
 
 	return (
 		<div className="flex min-h-dvh w-full items-center justify-center bg-background p-6 md:p-10">
-			<div className="w-full max-w-sm md:max-w-4xl">
-				<LoginForm />
-			</div>
+			<LoginForm />
 		</div>
 	)
 }

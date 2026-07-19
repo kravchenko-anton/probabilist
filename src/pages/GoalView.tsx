@@ -144,32 +144,40 @@ export function GoalView() {
 
   return (
     <div className="flex h-full flex-1">
-      <div className="flex w-full flex-col border-border lg:w-[55%] lg:border-r">
-        <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
+      <div className="flex w-full flex-col lg:w-[55%] lg:border-r lg:border-divider">
+        <div className="flex flex-col gap-3 px-5 py-5 sm:px-6">
           <div className="flex items-center gap-3">
-            <Emoji value={goal.emoji} className="size-6" />
-            <h1 className="text-xl font-medium tracking-tight text-foreground">
-              {goal.title}
-            </h1>
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-large bg-content1 ring-1 ring-foreground/8">
+              <Emoji value={goal.emoji} className="size-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-xl font-medium tracking-tight text-foreground">
+                {goal.title}
+              </h1>
+              <p className="text-tiny text-default-500">{goal.timePeriodLabel}</p>
+            </div>
             <Popover open={menuOpen} onOpenChange={setMenuOpen}>
               <PopoverTrigger
                 render={
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    className="text-muted-foreground hover:text-foreground"
+                    className="rounded-large text-default-500 hover:text-foreground"
                   />
                 }
               >
                 <MoreHorizontal size={15} />
               </PopoverTrigger>
-              <PopoverContent align="start" className="w-40 p-1">
+              <PopoverContent
+                align="end"
+                className="w-44 rounded-large border-divider bg-content1 p-1.5 shadow-small"
+              >
                 <button
                   onClick={() => {
                     setMenuOpen(false)
                     setEditOpen(true)
                   }}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-white/5"
+                  className="flex w-full items-center gap-2 rounded-large px-2.5 py-2 text-small text-foreground transition-colors hover:bg-white/5"
                 >
                   <Pencil size={13} />
                   Edit goal
@@ -179,7 +187,7 @@ export function GoalView() {
                     deleteGoal(goal.id)
                     navigate("/goals", { replace: true })
                   }}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-red-400 hover:bg-white/5"
+                  className="flex w-full items-center gap-2 rounded-large px-2.5 py-2 text-small text-red-400 transition-colors hover:bg-white/5"
                 >
                   <Trash2 size={13} />
                   Delete goal
@@ -187,7 +195,7 @@ export function GoalView() {
               </PopoverContent>
             </Popover>
             {goalDone && (
-              <span className="ml-auto flex items-center gap-1.5 rounded-md bg-emerald-400/10 px-2 py-1 text-xs text-emerald-400">
+              <span className="flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-tiny text-emerald-400">
                 <Check size={12} />
                 Achieved
               </span>
@@ -195,7 +203,7 @@ export function GoalView() {
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col gap-8 overflow-y-auto px-4 py-5 sm:px-6">
+        <div className="flex flex-1 flex-col gap-7 overflow-y-auto px-5 pb-8 sm:px-6">
           <GoalProgressChart
             goal={goal}
             attempts={goalAttempts}
@@ -206,14 +214,14 @@ export function GoalView() {
             }}
           />
 
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col gap-0.5">
-                <h2 className="text-sm font-medium text-foreground">
+          <section className="flex flex-col gap-2">
+            <div className="flex items-center justify-between px-0.5">
+              <div>
+                <h2 className="text-small font-medium text-foreground">
                   Experiments
                 </h2>
-                <p className="text-xs text-muted-foreground">
-                  Small bets that should move your metrics
+                <p className="text-tiny text-default-500">
+                  Small bets that move your metrics
                 </p>
               </div>
               {openCount > 0 && (
@@ -223,7 +231,7 @@ export function GoalView() {
                   size="icon-sm"
                   onClick={openCreateAttempt}
                   aria-label="New experiment"
-                  className="text-muted-foreground hover:text-foreground active:scale-[0.97]"
+                  className="rounded-large text-default-500 hover:text-foreground"
                 >
                   <Plus size={15} />
                 </Button>
@@ -231,22 +239,21 @@ export function GoalView() {
             </div>
 
             {openCount === 0 ? (
-              <div className="mt-3 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border px-4 py-10 text-center">
-                <p className="max-w-sm text-sm text-muted-foreground">
-                  Run a tiny experiment: predict what will happen, try it, then
-                  write what you learned.
+              <div className="flex flex-col items-center gap-3 rounded-large bg-content1 px-4 py-10 text-center ring-1 ring-foreground/8">
+                <p className="max-w-sm text-small text-default-500">
+                  Predict, try, then write what you learned.
                 </p>
                 <Button
                   type="button"
                   onClick={openCreateAttempt}
-                  className="active:scale-[0.97]"
+                  className="rounded-full px-4"
                 >
                   <Plus size={15} />
                   Try a tiny experiment
                 </Button>
               </div>
             ) : (
-              <div className="-mx-4 mt-2 flex flex-col sm:-mx-6">
+              <div className="flex flex-col overflow-hidden rounded-large bg-content1 ring-1 ring-foreground/8">
                 {openExperiments.map((section) => (
                   <TaskSection
                     key={section.kind}
@@ -269,16 +276,16 @@ export function GoalView() {
                 ))}
               </div>
             )}
-          </div>
+          </section>
 
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col gap-0.5">
-                <h2 className="text-sm font-medium text-foreground">
+          <section className="flex flex-col gap-2">
+            <div className="flex items-center justify-between px-0.5">
+              <div>
+                <h2 className="text-small font-medium text-foreground">
                   What you learned
                 </h2>
-                <p className="text-xs text-muted-foreground">
-                  Past experiments and notes for future you
+                <p className="text-tiny text-default-500">
+                  Past experiments for future you
                 </p>
               </div>
               <Button
@@ -287,7 +294,7 @@ export function GoalView() {
                 size="icon-sm"
                 onClick={() => setLogCompletedOpen(true)}
                 aria-label="Log a past experiment"
-                className="text-muted-foreground hover:text-foreground active:scale-[0.97]"
+                className="rounded-large text-default-500 hover:text-foreground"
               >
                 <Plus size={15} />
               </Button>
@@ -297,18 +304,17 @@ export function GoalView() {
               <button
                 type="button"
                 onClick={() => setLogCompletedOpen(true)}
-                className="mt-3 flex flex-col items-start gap-1 rounded-2xl border border-dashed border-border px-4 py-5 text-left transition-colors hover:bg-white/[0.03]"
+                className="flex flex-col items-start gap-1 rounded-large bg-content1 px-4 py-5 text-left ring-1 ring-foreground/8 transition-colors duration-200 hover:bg-white/[0.04]"
               >
-                <span className="text-sm font-medium text-foreground">
+                <span className="text-small font-medium text-foreground">
                   Already tried something?
                 </span>
-                <span className="text-sm text-muted-foreground">
-                  Log a past experiment — results and what you learned matter
-                  more than the exact steps.
+                <span className="text-small text-default-500">
+                  Log a past experiment — results and lessons matter most.
                 </span>
               </button>
             ) : (
-              <div className="-mx-4 mt-2 flex flex-col sm:-mx-6">
+              <div className="flex flex-col overflow-hidden rounded-large bg-content1 ring-1 ring-foreground/8">
                 {completedExperiments.map((attempt) => (
                   <AttemptRow
                     key={attempt.id}
@@ -323,16 +329,16 @@ export function GoalView() {
                 ))}
               </div>
             )}
-          </div>
+          </section>
         </div>
       </div>
 
       <div className="hidden flex-1 lg:block">
         {detailPane ?? (
-          <div className="flex h-full items-center justify-center px-8 text-center text-sm text-muted-foreground">
+          <div className="flex h-full items-center justify-center px-8 text-center text-small text-default-500">
             {goalAttempts.length === 0
               ? "Create a tiny experiment to predict, try, and learn."
-              : "Select an experiment to see predictions, results, and notes."}
+              : "Select an experiment to see details."}
           </div>
         )}
       </div>
@@ -341,7 +347,7 @@ export function GoalView() {
         <SheetContent
           side={isMobile ? "bottom" : "right"}
           showCloseButton={false}
-          className={cn("gap-0 p-0", isMobile && "rounded-t-2xl")}
+          className={cn("gap-0 border-divider bg-content1 p-0", isMobile && "rounded-t-2xl")}
           style={isMobile ? { height: "78dvh" } : undefined}
         >
           {isMobile && (

@@ -149,7 +149,7 @@ export function LogCompletedExperimentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] gap-5 overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Log a past experiment</DialogTitle>
         </DialogHeader>

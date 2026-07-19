@@ -255,7 +255,7 @@ function OutcomeMeter({
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="text-[11px] font-medium tracking-[0.04em] text-muted-foreground uppercase">
+    <span className="text-tiny font-medium tracking-[0.04em] text-default-500 uppercase">
       {children}
     </span>
   )
@@ -361,11 +361,13 @@ export function AttemptDetailPane({
           <div className="min-w-0 flex-1">
             <h3 className="flex items-center gap-2.5 text-[22px] font-semibold tracking-[-0.02em] text-foreground leading-snug">
               {attempt.icon && (
-                <Emoji value={attempt.icon} className="size-5 shrink-0" />
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-large border border-divider bg-content1">
+                  <Emoji value={attempt.icon} className="size-4" />
+                </span>
               )}
               <span className="truncate">{attempt.title}</span>
             </h3>
-            <p className="mt-1.5 text-[13px] text-muted-foreground">
+            <p className="mt-1.5 text-small text-default-500">
               <span
                 className={cn(
                   attempt.status === "active" && "text-primary",
@@ -374,11 +376,11 @@ export function AttemptDetailPane({
               >
                 {STATUS_LABEL[attempt.status]}
               </span>
-              <span className="text-muted-foreground/40"> · </span>
+              <span className="text-default-400"> · </span>
               {dateLabel}
               {attempt.deadline && (
                 <>
-                  <span className="text-muted-foreground/40"> · </span>
+                  <span className="text-default-400"> · </span>
                   <span className={cn(overdue && "text-red-400")}>
                     Due {formatShortDate(attempt.deadline)}
                   </span>
@@ -393,7 +395,7 @@ export function AttemptDetailPane({
                 size="icon-sm"
                 onClick={onEdit}
                 aria-label="Edit experiment"
-                className="text-muted-foreground hover:text-foreground active:scale-[0.96]"
+                className="rounded-large text-default-500 hover:text-foreground"
               >
                 <Pencil size={14} />
               </Button>
@@ -406,7 +408,7 @@ export function AttemptDetailPane({
                 onDeleted?.()
               }}
               aria-label="Delete experiment"
-              className="text-muted-foreground hover:text-red-400 active:scale-[0.96]"
+              className="rounded-large text-default-500 hover:text-red-400"
             >
               <Trash2 size={14} />
             </Button>
@@ -621,13 +623,13 @@ export function AttemptDetailPane({
       </div>
 
       {/* Footer — translucent material */}
-      <footer className="sticky bottom-0 mt-auto border-t border-white/[0.06] bg-[#1c1c1e]/80 px-6 py-3.5 backdrop-blur-xl backdrop-saturate-150">
+      <footer className="sticky bottom-0 mt-auto border-t border-divider bg-background/80 px-6 py-3.5 backdrop-blur-xl backdrop-saturate-150">
         {attempt.status === "planned" && (
           <div className="flex items-center gap-3">
-            <p className="flex-1 text-[13px] leading-snug text-muted-foreground">
+            <p className="flex-1 text-small leading-snug text-default-500">
               Predict where metrics will land, then start.
             </p>
-            <Button size="sm" onClick={onStart} className="active:scale-[0.97]">
+            <Button size="sm" onClick={onStart} className="rounded-full px-4">
               <Play size={13} />
               Predict &amp; start
             </Button>
@@ -635,7 +637,7 @@ export function AttemptDetailPane({
         )}
         {attempt.status === "active" && (
           <div className="flex items-center gap-3">
-            <p className="flex-1 text-[13px] leading-snug text-muted-foreground">
+            <p className="flex-1 text-small leading-snug text-default-500">
               {tiny
                 ? "When you're done, record what happened."
                 : readyForResults
@@ -646,14 +648,14 @@ export function AttemptDetailPane({
               size="sm"
               onClick={onRecordResults}
               disabled={!readyForResults}
-              className="active:scale-[0.97]"
+              className="rounded-full px-4"
             >
               Record results
             </Button>
           </div>
         )}
         {locked && (
-          <p className="text-[13px] leading-snug text-muted-foreground">
+          <p className="text-small leading-snug text-default-500">
             Metrics updated. Capture the lesson while it's fresh.
           </p>
         )}

@@ -17,22 +17,6 @@ interface AttemptRowProps {
   onSelect: () => void
 }
 
-function StatusIndicator({ attempt }: { attempt: Attempt }) {
-  if (attempt.status === "completed") {
-    return (
-      <span className="flex size-4 shrink-0 items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-400/15 text-emerald-400">
-        <span className="size-1.5 rounded-full bg-emerald-400" />
-      </span>
-    )
-  }
-  if (attempt.status === "active") {
-    return (
-      <span className="size-4 shrink-0 rounded-full border-2 border-primary bg-primary/20" />
-    )
-  }
-  return <span className="size-4 shrink-0 rounded-full border border-input" />
-}
-
 function Subtitle({ attempt, goal }: { attempt: Attempt; goal?: Goal }) {
   if (attempt.status === "completed") {
     const firstResult = attempt.results[0]
@@ -50,7 +34,7 @@ function Subtitle({ attempt, goal }: { attempt: Attempt; goal?: Goal }) {
         : null
 
     return (
-      <span className="truncate text-xs text-muted-foreground">
+      <span className="truncate text-tiny text-default-500">
         {attempt.completedAt
           ? formatShortDate(attempt.completedAt)
           : "Completed"}
@@ -60,23 +44,14 @@ function Subtitle({ attempt, goal }: { attempt: Attempt; goal?: Goal }) {
             <span className={outcome.className}>{outcome.short}</span>
           </>
         )}
-        {attempt.retrospective?.futureNote && (
-          <>
-            {" · "}
-            <span className="text-foreground/70">
-              “{attempt.retrospective.futureNote}”
-            </span>
-          </>
-        )}
       </span>
     )
   }
 
   if (attempt.status === "active") {
     return (
-      <span className="truncate text-xs text-muted-foreground">
+      <span className="truncate text-tiny text-default-500">
         <span className="text-primary">Running</span>
-        {attempt.predictions.length > 0 && " · predicted"}
         {attempt.deadline && (
           <>
             {" · "}
@@ -90,8 +65,8 @@ function Subtitle({ attempt, goal }: { attempt: Attempt; goal?: Goal }) {
   }
 
   return (
-    <span className="truncate text-xs text-muted-foreground">
-      Ready to predict
+    <span className="truncate text-tiny text-default-500">
+      Ready
       {isTinyAttempt(attempt) ? "" : " · has steps"}
       {attempt.deadline && ` · due ${formatShortDate(attempt.deadline)}`}
     </span>
@@ -105,23 +80,25 @@ export function AttemptRow({
   onSelect,
 }: AttemptRowProps) {
   return (
-    <div
+    <button
+      type="button"
       onClick={onSelect}
       className={cn(
-        "flex cursor-pointer items-start gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-white/5 active:scale-[0.995]",
-        selected && "bg-white/5",
+        "flex w-full min-h-14 items-center gap-3 px-3 py-2.5 text-left transition-colors duration-200",
+        selected
+          ? "bg-white/[0.08] text-foreground"
+          : "text-default-500 hover:bg-white/[0.04] hover:text-foreground",
       )}
     >
-      <span className="mt-0.5 flex items-center gap-2">
-        <StatusIndicator attempt={attempt} />
-        {attempt.icon && <Emoji value={attempt.icon} className="size-[15px]" />}
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-large border border-divider bg-background/30">
+        <Emoji value={attempt.icon ?? "🧪"} className="size-4" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-medium text-foreground">
+        <span className="truncate text-small font-medium text-foreground">
           {attempt.title}
         </span>
         <Subtitle attempt={attempt} goal={goal} />
       </span>
-    </div>
+    </button>
   )
 }

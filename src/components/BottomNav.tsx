@@ -1,4 +1,5 @@
 import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Plus, Target } from "lucide-react"
 import { useState } from "react"
@@ -8,14 +9,14 @@ export function BottomNav() {
   const [createGoalOpen, setCreateGoalOpen] = useState(false)
 
   return (
-    <nav className="px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
-      <div className="flex items-center rounded-2xl border border-border bg-sidebar/90 px-2 shadow-lg shadow-black/40 backdrop-blur-xl">
+    <nav className="px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
+      <div className="flex items-center rounded-2xl border border-divider bg-content1/90 px-1 shadow-small backdrop-blur-xl">
         <NavLink
           to="/goals"
           className={({ isActive }) =>
             cn(
-              "flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[10px] font-medium transition-colors",
-              isActive ? "text-foreground" : "text-muted-foreground",
+              "flex flex-1 flex-col items-center gap-0.5 py-2.5 text-tiny font-medium transition-colors duration-200",
+              isActive ? "text-foreground" : "text-default-500",
             )
           }
         >
@@ -23,8 +24,8 @@ export function BottomNav() {
             <>
               <span
                 className={cn(
-                  "relative flex h-7 w-12 items-center justify-center rounded-full transition-colors",
-                  isActive && "bg-primary/40",
+                  "flex h-8 w-12 items-center justify-center rounded-full transition-colors duration-200",
+                  isActive && "bg-primary/25",
                 )}
               >
                 <Target size={18} />
@@ -35,13 +36,14 @@ export function BottomNav() {
         </NavLink>
 
         <div className="flex flex-1 justify-center">
-          <button
+          <Button
             onClick={() => setCreateGoalOpen(true)}
             aria-label="New goal"
-            className="flex size-12 -translate-y-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-black/50 ring-4 ring-background transition-transform active:scale-95"
+            size="icon-lg"
+            className="-translate-y-3 size-12 rounded-full shadow-small ring-4 ring-background"
           >
             <Plus size={22} />
-          </button>
+          </Button>
         </div>
 
         <div className="flex-1" aria-hidden />

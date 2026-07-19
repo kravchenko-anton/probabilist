@@ -191,7 +191,9 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit goal" : "Create a new goal"}</DialogTitle>
+          <DialogTitle className="text-lg font-medium">
+            {isEditing ? "Edit goal" : "Create a new goal"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-[1fr_1.2fr]">
@@ -423,11 +425,16 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
           </div>
         </div>
 
-        <DialogFooter className="-mx-4 -mb-4 mt-2">
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+        <DialogFooter className="mt-2">
+          <Button
+            variant="outline"
+            className="rounded-full"
+            onClick={() => handleOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button
+            className="rounded-full px-5"
             onClick={handleSave}
             disabled={!title.trim() || !dateRange?.from || !dateRange?.to}
           >

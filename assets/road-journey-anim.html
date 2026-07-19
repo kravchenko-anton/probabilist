@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reroute to success</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 1080px;
+      height: 1080px;
+      overflow: hidden;
+      background: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .stage {
+      position: relative;
+      width: 1080px;
+      height: 1080px;
+      overflow: hidden;
+      background: #fff;
+      color: #171719;
+    }
+
+    /* —— Transition handoff from metric-card CTA —— */
+    .handoff {
+      position: absolute;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+    }
+    .handoff-card {
+      width: 720px;
+      background: #2c2c2e;
+      border-radius: 32px;
+      border: 1px solid rgba(84, 84, 88, 0.55);
+      padding: 28px 28px 24px;
+      transform-origin: 50% 50%;
+      will-change: transform, opacity, filter;
+    }
+    .handoff-title {
+      color: #f5f5f7;
+      font-size: 42px;
+      font-weight: 720;
+      letter-spacing: -0.045em;
+      margin-bottom: 22px;
+    }
+    .handoff-cta {
+      height: 76px;
+      border-radius: 20px;
+      background: #0a84ff;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 26px;
+      font-weight: 750;
+      letter-spacing: -0.03em;
+    }
+
+    .headline {
+      position: absolute;
+      top: 214px;
+      left: 110px;
+      width: 860px;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    .headline h1 {
+      font-size: 54px;
+      line-height: 1.02;
+      letter-spacing: -0.052em;
+      font-weight: 760;
+    }
+    .headline p {
+      margin-top: 12px;
+      font-size: 23px;
+      line-height: 1.3;
+      letter-spacing: -0.024em;
+      color: #737378;
+    }
+
+    .status {
+      position: absolute;
+      z-index: 20;
+      top: 88px;
+      left: 210px;
+      width: 660px;
+      height: 96px;
+      border-radius: 999px;
+      background: #1c1c1e;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 28px 0 22px;
+      opacity: 0;
+      transform: translateY(-14px) scale(.94);
+      overflow: hidden;
+    }
+    .status-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: 3px solid #0a84ff;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      background: transparent;
+      position: relative;
+    }
+    .status-icon img {
+      width: 34px;
+      height: 34px;
+      object-fit: contain;
+      display: none;
+    }
+    .status-icon .arrow {
+      width: 18px;
+      height: 18px;
+      color: #0a84ff;
+    }
+    .status-icon.mode-img .arrow { display: none; }
+    .status-icon.mode-img img { display: block; }
+    .status-icon.fail { border-color: transparent; background: transparent; }
+    .status-icon.ok { border-color: transparent; background: transparent; }
+    .status-copy {
+      flex: 1;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 650;
+      letter-spacing: -0.025em;
+      color: #0a84ff;
+    }
+    .attempt {
+      font-size: 18px;
+      font-weight: 700;
+      color: #8e8e93;
+      font-variant-numeric: tabular-nums;
+      min-width: 3.5ch;
+      text-align: right;
+    }
+
+    .map {
+      position: absolute;
+      left: 0;
+      top: 340px;
+      width: 1080px;
+      height: 660px;
+      overflow: visible;
+      opacity: 0;
+    }
+    .road-base {
+      fill: none;
+      stroke: #e8e8ed;
+      stroke-width: 22;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .road-retired {
+      fill: none;
+      stroke: #c7c7cc;
+      stroke-width: 14;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 1 28;
+      opacity: 0;
+    }
+    .road-active {
+      fill: none;
+      stroke: #0a84ff;
+      stroke-width: 24;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: url(#softGlow);
+    }
+    .branch-dot {
+      fill: #fff;
+      stroke: #d1d1d6;
+      stroke-width: 6;
+    }
+
+    .marker {
+      position: absolute;
+      z-index: 14;
+      width: 72px;
+      height: 72px;
+      margin: -36px 0 0 -36px;
+      opacity: 0;
+      transform: scale(.55);
+      pointer-events: none;
+    }
+    .marker img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 14px rgba(0,0,0,.14));
+    }
+    .fail-label {
+      position: absolute;
+      z-index: 13;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #fff;
+      border: 2px solid #ffd1ce;
+      color: #ff453a;
+      font-size: 16px;
+      font-weight: 720;
+      letter-spacing: -0.02em;
+      opacity: 0;
+      white-space: nowrap;
+      transform: translateY(8px);
+    }
+
+    .truck {
+      position: absolute;
+      z-index: 16;
+      width: 92px;
+      height: 92px;
+      margin: -46px 0 0 -46px;
+      opacity: 0;
+      will-change: left, top, transform;
+    }
+    .truck img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 10px 16px rgba(0,0,0,.16));
+      transform: scaleX(-1); /* face travel direction (paths go left→right) */
+    }
+
+    .goal {
+      position: absolute;
+      z-index: 12;
+      width: 110px;
+      height: 110px;
+      margin: -55px 0 0 -55px;
+      opacity: 0;
+      transform: scale(.5);
+    }
+    .goal img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 10px 18px rgba(48,209,88,.28));
+    }
+    .goal-copy {
+      position: absolute;
+      z-index: 12;
+      width: 280px;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    .goal-copy strong {
+      display: block;
+      font-size: 30px;
+      letter-spacing: -0.04em;
+    }
+    .goal-copy span {
+      display: block;
+      margin-top: 5px;
+      color: #6e6e73;
+      font-size: 18px;
+    }
+    .burst {
+      position: absolute;
+      z-index: 8;
+      width: 200px;
+      height: 200px;
+      margin: -100px 0 0 -100px;
+      border: 4px solid #30d158;
+      border-radius: 50%;
+      opacity: 0;
+      transform: scale(.35);
+    }
+  </style>
+</head>
+<body>
+  <main class="stage" id="stage">
+    <div class="handoff" id="handoff">
+      <div class="handoff-card" id="handoffCard">
+        <div class="handoff-title">Applications</div>
+        <div class="handoff-cta" id="handoffCta">✓  Challenge accepted</div>
+      </div>
+    </div>
+
+    <div class="status" id="status">
+      <div class="status-icon" id="statusIcon">
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 12h12M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <img id="statusImg" alt="" />
+      </div>
+      <div class="status-copy" id="statusCopy">Trying a route</div>
+      <div class="attempt" id="attempt">1 / 3</div>
+    </div>
+
+    <header class="headline" id="headline">
+      <h1>Success isn’t a straight line.</h1>
+      <p>When one route fails, choose another.</p>
+    </header>
+
+    <svg class="map" id="map" viewBox="0 0 1080 660" aria-hidden="true">
+      <defs>
+        <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feFlood flood-color="#0a84ff" flood-opacity=".16" />
+          <feComposite in2="blur" operator="in" />
+          <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <filter id="greenGlow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feFlood flood-color="#30d158" flood-opacity=".18" />
+          <feComposite in2="blur" operator="in" />
+          <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Ghost map always visible after transition -->
+      <path class="road-base" d="M 72 430 C 140 415 208 375 300 360" />
+      <path class="road-base" d="M 300 360 C 372 320 392 180 500 152" />
+      <path class="road-base" d="M 300 360 C 390 402 472 494 598 440" />
+      <path class="road-base" d="M 300 360 C 404 330 470 270 558 302 C 664 340 686 208 776 164 C 846 130 896 86 938 46" />
+
+      <path class="road-retired" id="branch1Retired" d="M 300 360 C 372 320 392 180 500 152" />
+      <path class="road-retired" id="branch2Retired" d="M 300 360 C 390 402 472 494 598 440" />
+
+      <path class="road-active" id="commonActive" d="M 72 430 C 140 415 208 375 300 360" />
+      <path class="road-active" id="branch1Active" d="M 300 360 C 372 320 392 180 500 152" />
+      <path class="road-active" id="branch2Active" d="M 300 360 C 390 402 472 494 598 440" />
+      <path class="road-active" id="branch3Active" d="M 300 360 C 404 330 470 270 558 302 C 664 340 686 208 776 164 C 846 130 896 86 938 46" />
+      <circle class="branch-dot" cx="300" cy="360" r="12" />
+    </svg>
+
+    <div class="marker" id="fail1"><img src="./icon-fail.png" alt="" /></div>
+    <div class="fail-label" id="failLabel1">Not this way</div>
+    <div class="marker" id="fail2"><img src="./icon-fail.png" alt="" /></div>
+    <div class="fail-label" id="failLabel2">Try again</div>
+
+    <div class="burst" id="burst"></div>
+    <div class="goal" id="goal"><img src="./icon-check.png" alt="" /></div>
+    <div class="goal-copy" id="goalCopy">
+      <strong>You made it.</strong>
+      <span>The third route worked.</span>
+    </div>
+
+    <div class="truck" id="truck"><img src="./icon-truck.png" alt="" /></div>
+  </main>
+
+  <script>
+    const FPS = 60;
+    // 0.7s handoff from previous metric CTA + 3.8s road story = 4.5s
+    const DURATION_MS = 4500;
+    const ICON_FAIL = "./icon-fail.png";
+    const ICON_CHECK = "./icon-check.png";
+
+    const clamp = (v, min = 0, max = 1) => Math.min(max, Math.max(min, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const local = (ms, start, end) => clamp((ms - start) / Math.max(1, end - start));
+    const ease = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+    const out = (t) => 1 - Math.pow(1 - t, 4);
+    const softBack = (t) => {
+      const c1 = 1.15, c3 = c1 + 1;
+      return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const stage = $("stage");
+    const handoff = $("handoff");
+    const handoffCard = $("handoffCard");
+    const headline = $("headline");
+    const status = $("status");
+    const statusCopy = $("statusCopy");
+    const statusIcon = $("statusIcon");
+    const statusImg = $("statusImg");
+    const attempt = $("attempt");
+    const map = $("map");
+    const truck = $("truck");
+    const goal = $("goal");
+    const goalCopy = $("goalCopy");
+    const burst = $("burst");
+    const fail1 = $("fail1");
+    const fail2 = $("fail2");
+    const failLabel1 = $("failLabel1");
+    const failLabel2 = $("failLabel2");
+    const common = $("commonActive");
+    const branch1 = $("branch1Active");
+    const branch2 = $("branch2Active");
+    const branch3 = $("branch3Active");
+    const retired1 = $("branch1Retired");
+    const retired2 = $("branch2Retired");
+
+    const paths = [common, branch1, branch2, branch3, retired1, retired2];
+    const lengths = new Map(paths.map((path) => [path, path.getTotalLength()]));
+    paths.forEach((path) => {
+      const length = lengths.get(path);
+      path.style.strokeDasharray = `${length}`;
+      path.style.strokeDashoffset = `${length}`;
+    });
+
+    function draw(path, progress) {
+      path.style.strokeDashoffset = String(lengths.get(path) * (1 - clamp(progress)));
+    }
+
+    function pointOn(path, progress) {
+      const len = lengths.get(path);
+      const t = clamp(progress);
+      const p = path.getPointAtLength(len * t);
+      const p2 = path.getPointAtLength(Math.min(len, len * t + 2));
+      const mapRect = map.getBoundingClientRect();
+      const stageRect = stage.getBoundingClientRect();
+      const angle = Math.atan2(p2.y - p.y, p2.x - p.x) * (180 / Math.PI);
+      return {
+        x: mapRect.left - stageRect.left + p.x,
+        y: mapRect.top - stageRect.top + p.y,
+        angle,
+      };
+    }
+
+    function place(el, x, y) {
+      el.style.left = `${x.toFixed(2)}px`;
+      el.style.top = `${y.toFixed(2)}px`;
+    }
+
+    function setStatusArrow() {
+      statusIcon.className = "status-icon";
+      statusIcon.style.borderColor = "#0a84ff";
+      statusCopy.style.color = "#0a84ff";
+    }
+    function setStatusImg(src, tone) {
+      statusIcon.className = `status-icon mode-img ${tone || ""}`;
+      statusImg.src = src;
+      statusIcon.style.borderColor = "transparent";
+      if (tone === "fail") statusCopy.style.color = "#ff453a";
+      else if (tone === "ok") statusCopy.style.color = "#30d158";
+      else statusCopy.style.color = "#0a84ff";
+    }
+
+    function showFail(el, label, point, appearT) {
+      place(el, point.x, point.y);
+      place(label, point.x + 34, point.y + 48);
+      const e = softBack(clamp(appearT));
+      el.style.opacity = String(Math.min(1, appearT * 1.8));
+      el.style.transform = `scale(${lerp(.45, 1, e)})`;
+      label.style.opacity = String(clamp(appearT * 1.4));
+      label.style.transform = `translateY(${8 * (1 - out(appearT))}px)`;
+    }
+
+    function keepFail(el, label, point) {
+      place(el, point.x, point.y);
+      place(label, point.x + 34, point.y + 48);
+      el.style.opacity = "1";
+      el.style.transform = "scale(1)";
+      label.style.opacity = "1";
+      label.style.transform = "translateY(0)";
+    }
+
+    function resetVisuals() {
+      [common, branch1, branch2, branch3].forEach((path) => {
+        draw(path, 0);
+        path.style.opacity = "1";
+        path.style.stroke = "#0a84ff";
+        path.style.filter = "url(#softGlow)";
+      });
+      [retired1, retired2].forEach((path) => {
+        draw(path, 1);
+        path.style.opacity = "0";
+      });
+      [fail1, fail2, failLabel1, failLabel2, goal, goalCopy, burst].forEach((el) => {
+        el.style.opacity = "0";
+      });
+      truck.style.opacity = "0";
+      setStatusArrow();
+    }
+
+    function renderAt(ms) {
+      ms = clamp(ms, 0, DURATION_MS);
+      resetVisuals();
+
+      // —— 0–700ms: handoff from previous “Challenge accepted” ——
+      const handT = local(ms, 0, 700);
+      if (handT < 1) {
+        const hold = clamp(handT / 0.35);
+        const leave = ease(local(ms, 280, 700));
+        handoff.style.opacity = String(1 - leave);
+        handoffCard.style.transform = `translateY(${lerp(18, -40, leave)}px) scale(${lerp(.92, .72, leave)})`;
+        handoffCard.style.filter = leave > 0 ? `blur(${8 * leave}px)` : "none";
+        handoff.style.display = "grid";
+      } else {
+        handoff.style.opacity = "0";
+        handoff.style.display = "none";
+      }
+
+      const sceneIn = out(local(ms, 420, 820));
+      status.style.opacity = String(sceneIn);
+      status.style.transform = `translateY(${lerp(-14, 0, sceneIn)}px) scale(${lerp(.94, 1, sceneIn)})`;
+      headline.style.opacity = String(out(local(ms, 500, 900)));
+      headline.style.transform = `translateY(${lerp(16, 0, out(local(ms, 500, 900)))}px)`;
+      map.style.opacity = String(out(local(ms, 480, 880)));
+
+      // Road story starts after handoff.
+      const t0 = 700;
+      const commonT = ease(local(ms, t0 + 40, t0 + 480));
+      draw(common, commonT);
+
+      let marker = pointOn(common, Math.max(0.001, commonT));
+      let truckOpacity = sceneIn;
+      let truckScale = 1;
+      let fail1On = false;
+      let fail2On = false;
+
+      statusCopy.textContent = "Trying a route";
+      attempt.textContent = "1 / 3";
+      setStatusArrow();
+
+      // Attempt 1
+      const a1 = ease(local(ms, t0 + 450, t0 + 1050));
+      if (ms >= t0 + 450) {
+        draw(common, 1);
+        draw(branch1, a1);
+        marker = pointOn(branch1, Math.max(0.001, a1));
+      }
+
+      const end1 = pointOn(branch1, 1);
+      const fail1Appear = local(ms, t0 + 980, t0 + 1180);
+      if (fail1Appear > 0) {
+        fail1On = true;
+        showFail(fail1, failLabel1, end1, fail1Appear);
+        truckScale = 1 - 0.1 * Math.sin(Math.PI * clamp(fail1Appear));
+        statusCopy.textContent = "That route failed";
+        setStatusImg(ICON_FAIL, "fail");
+      }
+
+      // Return + retire route 1
+      const r1 = ease(local(ms, t0 + 1140, t0 + 1400));
+      if (r1 > 0) {
+        fail1On = true;
+        keepFail(fail1, failLabel1, end1);
+        marker = pointOn(branch1, 1 - r1);
+        branch1.style.opacity = String(1 - r1);
+        retired1.style.opacity = String(r1);
+        statusCopy.textContent = "Choosing a new direction";
+        setStatusArrow();
+        statusCopy.style.color = "#ff9f0a";
+        statusIcon.style.borderColor = "#ff9f0a";
+        statusIcon.querySelector(".arrow").style.color = "#ff9f0a";
+      }
+
+      // Attempt 2
+      const a2 = ease(local(ms, t0 + 1380, t0 + 1980));
+      if (ms >= t0 + 1380) {
+        fail1On = true;
+        keepFail(fail1, failLabel1, end1);
+        draw(branch1, 0);
+        branch1.style.opacity = "0";
+        retired1.style.opacity = "1";
+        draw(branch2, a2);
+        marker = pointOn(branch2, Math.max(0.001, a2));
+        statusCopy.textContent = "Trying another route";
+        setStatusArrow();
+        attempt.textContent = "2 / 3";
+      }
+
+      const end2 = pointOn(branch2, 1);
+      const fail2Appear = local(ms, t0 + 1910, t0 + 2110);
+      if (fail2Appear > 0) {
+        fail1On = true;
+        fail2On = true;
+        keepFail(fail1, failLabel1, end1);
+        showFail(fail2, failLabel2, end2, fail2Appear);
+        truckScale = 1 - 0.1 * Math.sin(Math.PI * clamp(fail2Appear));
+        statusCopy.textContent = "Not yet";
+        setStatusImg(ICON_FAIL, "fail");
+      }
+
+      // Return + retire route 2
+      const r2 = ease(local(ms, t0 + 2080, t0 + 2320));
+      if (r2 > 0) {
+        fail1On = true;
+        fail2On = true;
+        keepFail(fail1, failLabel1, end1);
+        keepFail(fail2, failLabel2, end2);
+        marker = pointOn(branch2, 1 - r2);
+        branch2.style.opacity = String(1 - r2);
+        retired2.style.opacity = String(r2);
+        statusCopy.textContent = "Rerouting";
+        setStatusArrow();
+        statusCopy.style.color = "#ff9f0a";
+        statusIcon.style.borderColor = "#ff9f0a";
+        statusIcon.querySelector(".arrow").style.color = "#ff9f0a";
+      }
+
+      // Final route
+      const a3 = ease(local(ms, t0 + 2280, t0 + 3100));
+      if (ms >= t0 + 2280) {
+        fail1On = true;
+        fail2On = true;
+        keepFail(fail1, failLabel1, end1);
+        keepFail(fail2, failLabel2, end2);
+        draw(branch2, 0);
+        branch2.style.opacity = "0";
+        retired1.style.opacity = "1";
+        retired2.style.opacity = "1";
+        draw(branch3, a3);
+        marker = pointOn(branch3, Math.max(0.001, a3));
+        statusCopy.textContent = "One more direction";
+        setStatusArrow();
+        attempt.textContent = "3 / 3";
+      }
+
+      const end3 = pointOn(branch3, 1);
+      place(goal, end3.x, end3.y);
+      place(burst, end3.x, end3.y);
+      place(goalCopy, end3.x - 140, end3.y + 78);
+
+      const successT = local(ms, t0 + 3020, t0 + 3400);
+      if (successT > 0) {
+        fail1On = true;
+        fail2On = true;
+        keepFail(fail1, failLabel1, end1);
+        keepFail(fail2, failLabel2, end2);
+        draw(branch3, 1);
+        const e = softBack(successT);
+        branch3.style.stroke = "#30d158";
+        branch3.style.filter = "url(#greenGlow)";
+        goal.style.opacity = String(Math.min(1, successT * 1.8));
+        goal.style.transform = `scale(${lerp(.5, 1, e)})`;
+        burst.style.opacity = String((1 - out(successT)) * 0.65);
+        burst.style.transform = `scale(${lerp(.35, 1.3, out(successT))})`;
+        goalCopy.style.opacity = String(out(local(ms, t0 + 3180, t0 + 3500)));
+        goalCopy.style.transform = `translateY(${lerp(14, 0, out(local(ms, t0 + 3180, t0 + 3500)))}px)`;
+        truckScale = lerp(1, 0.82, out(successT));
+        truckOpacity = 1 - out(local(successT, 0.55, 1));
+        statusCopy.textContent = "Goal reached";
+        setStatusImg(ICON_CHECK, "ok");
+        attempt.textContent = "DONE";
+        marker = end3;
+      }
+
+      // Persist fails if flagged but phase didn't re-apply (safety)
+      if (fail1On && fail1.style.opacity === "0") keepFail(fail1, failLabel1, end1);
+      if (fail2On && fail2.style.opacity === "0") keepFail(fail2, failLabel2, end2);
+
+      place(truck, marker.x, marker.y);
+      const tilt = Math.max(-18, Math.min(18, marker.angle || 0));
+      truck.style.opacity = String(truckOpacity);
+      truck.style.transform = `scale(${truckScale}) rotate(${tilt.toFixed(2)}deg)`;
+    }
+
+    window.__FPS = FPS;
+    window.__DURATION_MS = DURATION_MS;
+    window.__TOTAL_FRAMES = Math.round((DURATION_MS / 1000) * FPS);
+    window.__renderFrame = (frame) => renderAt((frame / FPS) * 1000);
+    window.__seek = renderAt;
+    window.__animReady = true;
+    window.__animDone = false;
+
+    if (new URLSearchParams(location.search).has("render")) {
+      renderAt(0);
+    } else {
+      let started;
+      function tick(now) {
+        started ??= now;
+        const ms = now - started;
+        renderAt(ms);
+        if (ms < DURATION_MS) requestAnimationFrame(tick);
+        else {
+          renderAt(DURATION_MS);
+          window.__animDone = true;
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+  </script>
+</body>
+</html>
