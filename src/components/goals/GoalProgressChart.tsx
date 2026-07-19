@@ -31,6 +31,7 @@ import { animate, motion } from "motion/react"
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
+  WheelEvent as ReactWheelEvent,
 } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
@@ -453,9 +454,24 @@ export function GoalProgressChart({
   const velocitySamples = useRef<{ t: number; x: number }[]>([])
   const lastTick = useRef<number | null>(null)
   const scrollAnim = useRef<ReturnType<typeof animate> | null>(null)
+  const interactionFrame = useRef<number | null>(null)
+  const pendingDragPos = useRef<number | null>(null)
+  const wheelSettleTimer = useRef<number | null>(null)
   const prevFocusAttempt = useRef<string | undefined>(undefined)
   const isFirstFocusEffect = useRef(true)
   const DRAG_THRESHOLD_PX = 12
+
+  useEffect(
+    () => () => {
+      if (wheelSettleTimer.current !== null) {
+        window.clearTimeout(wheelSettleTimer.current)
+      }
+      if (interactionFrame.current !== null) {
+        window.cancelAnimationFrame(interactionFrame.current)
+      }
+    },
+    [],
+  )
 
   const bucketDays =
     mode === "all" && totalDays > 60 ? Math.ceil(totalDays / 48) : 1
@@ -599,10 +615,37 @@ export function GoalProgressChart({
     setCoasting(false)
   }
 
+  function clearWheelSettleTimer() {
+    if (wheelSettleTimer.current !== null) {
+      window.clearTimeout(wheelSettleTimer.current)
+      wheelSettleTimer.current = null
+    }
+  }
+
   function setScrollImmediate(next: number) {
     scrollRef.current = next
     setScroll(next)
     tickHaptic(next)
+  }
+
+  /** Coalesce high-frequency pointer/wheel events into one React render per frame. */
+  function scheduleInteractionFrame(next: number, dragPos?: number) {
+    scrollRef.current = next
+    if (dragPos !== undefined) pendingDragPos.current = dragPos
+    tickHaptic(next)
+    if (interactionFrame.current !== null) return
+
+    interactionFrame.current = window.requestAnimationFrame(() => {
+      interactionFrame.current = null
+      setScroll(scrollRef.current)
+      if (
+        pendingDragPos.current !== null &&
+        dragState.current.dragging
+      ) {
+        setDrag({ pos: pendingDragPos.current })
+      }
+      pendingDragPos.current = null
+    })
   }
 
   function springScrollTo(target: number, velocitySlots = 0) {
@@ -663,6 +706,7 @@ export function GoalProgressChart({
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (!isWindowed) return
     if (event.button !== 0 && event.pointerType === "mouse") return
+    clearWheelSettleTimer()
     // Don't preventDefault / capture yet — wait until this is a real drag.
     const rect = trackRef.current!.getBoundingClientRect()
     dragState.current = {
@@ -691,7 +735,6 @@ export function GoalProgressChart({
       } catch {
         /* already captured */
       }
-      setDrag({ pos: trackPos(event) })
     }
 
     const now = performance.now()
@@ -700,8 +743,7 @@ export function GoalProgressChart({
 
     const raw = startScroll + (startX - event.clientX) / slotPx
     const next = constrainScroll(raw, minStart, maxStartExt)
-    setDrag({ pos: trackPos(event) })
-    setScrollImmediate(next)
+    scheduleInteractionFrame(next, trackPos(event))
   }
 
   function endDrag(event?: ReactPointerEvent<HTMLDivElement>) {
@@ -730,6 +772,7 @@ export function GoalProgressChart({
     }
 
     setDrag(null)
+    pendingDragPos.current = null
 
     const samples = velocitySamples.current
     let velocityPx = 0
@@ -771,12 +814,41 @@ export function GoalProgressChart({
           : 0
     if (!dir) return
     event.preventDefault()
+    clearWheelSettleTimer()
     const active = Math.round(scrollRef.current + centerOffset)
     springScrollTo(scrollForActive(active + dir), dir * 2.5)
   }
 
+  function onTrackWheel(event: ReactWheelEvent<HTMLDivElement>) {
+    if (!isWindowed) return
+    event.preventDefault()
+    stopScrollAnim()
+    clearWheelSettleTimer()
+
+    const rect = trackRef.current?.getBoundingClientRect()
+    if (!rect || rect.width <= 0) return
+    const slotPx = rect.width / windowLen
+    const deltaPx =
+      Math.abs(event.deltaX) > Math.abs(event.deltaY)
+        ? event.deltaX
+        : event.deltaY
+    const next = constrainScroll(
+      scrollRef.current + deltaPx / Math.max(slotPx, 1),
+      minStart,
+      maxStartExt,
+    )
+    scheduleInteractionFrame(next)
+
+    wheelSettleTimer.current = window.setTimeout(() => {
+      const active = Math.round(scrollRef.current + centerOffset)
+      springScrollTo(scrollForActive(active), 0)
+      wheelSettleTimer.current = null
+    }, 120)
+  }
+
   function handleModeChange(next: RangeMode) {
     stopScrollAnim()
+    clearWheelSettleTimer()
     setMode(next)
     setScroll(null)
   }
@@ -1065,6 +1137,7 @@ export function GoalProgressChart({
             onPointerCancel={(e) => endDrag(e)}
             onLostPointerCapture={() => endDrag()}
             onKeyDown={onTrackKeyDown}
+            onWheel={onTrackWheel}
             className={cn(
               "relative outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/50",
               isWindowed && "touch-none",
@@ -1107,14 +1180,18 @@ export function GoalProgressChart({
                   drag && center >= 0 && center <= 1
                     ? 1 + 0.12 * Math.exp(-(((center - drag.pos) / 0.12) ** 2))
                     : 1
-                const fromEdge = Math.min(viewPos, windowLen - 1 - viewPos)
-                const isEdge = isWindowed && fromEdge < EDGE && fromEdge >= 0
-                const edgeScale =
-                  isEdge && fromEdge >= 0 && fromEdge < EDGE
-                    ? EDGE_SCALE[Math.floor(fromEdge)] ?? 1
-                    : viewPos < 0 || viewPos > windowLen - 1
-                      ? 0.55
-                      : 1
+                const centerPos = viewPos + 0.5
+                const fromEdge = Math.min(centerPos, windowLen - centerPos)
+                const isEdge =
+                  !isMobile &&
+                  isWindowed &&
+                  fromEdge >= 0 &&
+                  fromEdge < EDGE
+                const edgeScale = isEdge
+                  ? EDGE_SCALE[Math.max(0, Math.floor(fromEdge))] ?? 1
+                  : centerPos < 0 || centerPos > windowLen
+                    ? EDGE_SCALE[0]
+                    : 1
 
                 if (!slot) {
                   return (
@@ -1172,10 +1249,14 @@ export function GoalProgressChart({
                         scaleY: isActive ? 1 : 0.96,
                       }}
                       transition={{
-                        type: "spring",
-                        stiffness: drag || coasting ? 380 : 520,
-                        damping: drag || coasting ? 36 : 42,
-                        mass: 0.7,
+                        ...(drag || coasting
+                          ? { duration: 0 }
+                          : {
+                              type: "spring",
+                              stiffness: 520,
+                              damping: 42,
+                              mass: 0.7,
+                            }),
                       }}
                       className={cn(
                         "relative origin-bottom overflow-visible rounded-[4px]",
@@ -1246,8 +1327,13 @@ export function GoalProgressChart({
                     ? String(slot.start.getDate())
                     : formatShortDate(slot.start)
                 const viewPos = index - scrollFrac
-                const fromEdge = Math.min(viewPos, windowLen - 1 - viewPos)
-                const isEdge = isWindowed && fromEdge < EDGE && fromEdge >= 0
+                const centerPos = viewPos + 0.5
+                const fromEdge = Math.min(centerPos, windowLen - centerPos)
+                const isEdge =
+                  !isMobile &&
+                  isWindowed &&
+                  fromEdge >= 0 &&
+                  fromEdge < EDGE
                 const isActive = realIndex === activeSlotIndex
                 return (
                   <button
