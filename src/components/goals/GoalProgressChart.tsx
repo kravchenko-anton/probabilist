@@ -59,8 +59,6 @@ const CHART_H = PLOT_H + TOP_PAD
 /** Quiet / gray floor — keep low so empty days stay visually light. */
 const BASE_FRAC = 0.11
 const ACTIVE_FLOOR = 0.2
-const EDGE = 2
-const EDGE_SCALE = [0.55, 0.75]
 const BAR_EDGE = "rgba(245, 245, 247, 0.1)"
 const BAR_DONE = "#30D158"
 const BAR_MISSED = "rgba(255, 69, 58, 0.4)"
@@ -1180,18 +1178,6 @@ export function GoalProgressChart({
                   drag && center >= 0 && center <= 1
                     ? 1 + 0.12 * Math.exp(-(((center - drag.pos) / 0.12) ** 2))
                     : 1
-                const centerPos = viewPos + 0.5
-                const fromEdge = Math.min(centerPos, windowLen - centerPos)
-                const isEdge =
-                  !isMobile &&
-                  isWindowed &&
-                  fromEdge >= 0 &&
-                  fromEdge < EDGE
-                const edgeScale = isEdge
-                  ? EDGE_SCALE[Math.max(0, Math.floor(fromEdge))] ?? 1
-                  : centerPos < 0 || centerPos > windowLen
-                    ? EDGE_SCALE[0]
-                    : 1
 
                 if (!slot) {
                   return (
@@ -1211,9 +1197,7 @@ export function GoalProgressChart({
                 }
 
                 const dayAttempts = uniqueAttempts(slot.events)
-                const color = isEdge
-                  ? BAR_EDGE
-                  : slot.isFuture
+                const color = slot.isFuture
                     ? BAR_FUTURE
                     : slot.done > 0
                       ? BAR_DONE
@@ -1224,7 +1208,6 @@ export function GoalProgressChart({
                 const isEnd = slot.isPeriodEnd
                 const isActive = dayIndex === activeSlotIndex
                 const isGrayBar =
-                  isEdge ||
                   slot.isFuture ||
                   (slot.done === 0 && color !== BAR_DONE)
 
@@ -1240,8 +1223,8 @@ export function GoalProgressChart({
                           PLOT_H,
                           // Keep room for icon chips inside active bars.
                           Math.max(
-                            dayAttempts.length > 0 && !isEdge ? 36 : 0,
-                            heightFrac * boost * edgeScale * PLOT_H,
+                            dayAttempts.length > 0 ? 36 : 0,
+                            heightFrac * boost * PLOT_H,
                           ),
                         ),
                         backgroundColor: color,
@@ -1283,7 +1266,7 @@ export function GoalProgressChart({
                           />
                         </span>
                       )}
-                      {!isEdge && dayAttempts.length > 0 && (
+                      {dayAttempts.length > 0 && (
                         <ExperimentDayStack events={slot.events} />
                       )}
                     </motion.div>
@@ -1326,14 +1309,6 @@ export function GoalProgressChart({
                   slot.days === 1
                     ? String(slot.start.getDate())
                     : formatShortDate(slot.start)
-                const viewPos = index - scrollFrac
-                const centerPos = viewPos + 0.5
-                const fromEdge = Math.min(centerPos, windowLen - centerPos)
-                const isEdge =
-                  !isMobile &&
-                  isWindowed &&
-                  fromEdge >= 0 &&
-                  fromEdge < EDGE
                 const isActive = realIndex === activeSlotIndex
                 return (
                   <button
@@ -1359,9 +1334,7 @@ export function GoalProgressChart({
                         <span
                           className={cn(
                             "text-tiny tabular-nums",
-                            isEdge
-                              ? "text-default-400/50"
-                              : "text-default-500",
+                            "text-default-500",
                             !labelVisible && "invisible",
                           )}
                         >

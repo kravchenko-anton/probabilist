@@ -1,12 +1,11 @@
 import { GoalFormDialog } from "@/components/goals/GoalFormDialog"
-import { GoalJourneyCard } from "@/components/goals/GoalJourneyCard"
 import { Button } from "@/components/ui/button"
 import { Emoji } from "@/components/ui/emoji"
 import { goalProgress, isGoalDone } from "@/data/goals"
 import { useGoals } from "@/lib/goals-store"
 import { cn } from "@/lib/utils"
 import { motion, useReducedMotion } from "motion/react"
-import { Check, Plus } from "lucide-react"
+import { Check, Plus, Target } from "lucide-react"
 import { useState } from "react"
 import { Link } from "react-router-dom"
 
@@ -28,7 +27,7 @@ export function GoalsPage() {
         </div>
         <Button
           size="sm"
-          className="shrink-0 rounded-full px-3.5"
+          className="hidden shrink-0 rounded-full px-3.5 md:inline-flex"
           onClick={() => setCreateOpen(true)}
         >
           <Plus size={14} />
@@ -38,28 +37,29 @@ export function GoalsPage() {
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4 sm:px-8 sm:pb-8">
         {goals.length === 0 ? (
-          <div className="flex flex-col items-center gap-6 py-10 text-center sm:py-14">
-            <GoalJourneyCard
-              beforeEmoji="😩"
-              afterEmoji="😎"
-              beforeLabel="Now"
-              afterLabel="Goal"
-              title="Land the job you want"
-              steps={[
-                { label: "Where you are", detail: "Job hunting, no offers yet" },
-                {
-                  label: "What you’ll measure",
-                  detail: "Apps · interviews · offer",
-                },
-                { label: "Where you’re headed", detail: "Signed and starting" },
-              ]}
-              ctaLabel="Set up metrics"
-              onCtaClick={() => setCreateOpen(true)}
-            />
-            <p className="max-w-sm text-small text-default-500">
-              A goal is something you want to move. Experiments are the tiny
-              bets you run to learn how.
+          <div className="mx-auto flex min-h-[55vh] max-w-sm flex-col items-center justify-center text-center">
+            <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Target size={22} />
+            </div>
+            <h2 className="text-medium font-medium text-foreground">
+              No goals yet
+            </h2>
+            <p className="mt-1.5 text-small text-default-500">
+              <span className="md:hidden">
+                Tap the + button below to create your first goal.
+              </span>
+              <span className="hidden md:inline">
+                Create a goal and start making progress.
+              </span>
             </p>
+            <Button
+              type="button"
+              className="mt-5 hidden rounded-full px-5 md:inline-flex"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Plus size={14} />
+              Create goal
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
