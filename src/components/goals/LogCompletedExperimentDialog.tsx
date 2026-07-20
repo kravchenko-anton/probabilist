@@ -15,6 +15,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type {
   Attempt,
@@ -76,10 +83,14 @@ export function LogCompletedExperimentDialog({
   const [dateOpen, setDateOpen] = useState(false);
   const [actions, setActions] = useState<string[]>([]);
   const [actionInput, setActionInput] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [results, setResults] = useState<Record<string, string>>({});
+  const [addValue, setAddValue] = useState("");
   const [happened, setHappened] = useState("");
   const [learned, setLearned] = useState("");
   const [futureNote, setFutureNote] = useState("");
+
+  const available = goal.metrics.filter((m) => !selectedIds.includes(m.id));
 
   useEffect(() => {
     if (!open) return;
@@ -89,13 +100,31 @@ export function LogCompletedExperimentDialog({
     setDateOpen(false);
     setActions([]);
     setActionInput("");
-    setResults(
-      Object.fromEntries(goal.metrics.map((metric) => [metric.id, ""])),
-    );
+    const first = goal.metrics[0];
+    setSelectedIds(first ? [first.id] : []);
+    setResults(first ? { [first.id]: "" } : {});
+    setAddValue("");
     setHappened("");
     setLearned("");
     setFutureNote("");
   }, [open, goal.metrics]);
+
+  function addMetric(metricId: string | null) {
+    if (!metricId || selectedIds.includes(metricId)) return;
+    if (!goal.metrics.some((m) => m.id === metricId)) return;
+    setSelectedIds((prev) => [...prev, metricId]);
+    setResults((prev) => ({ ...prev, [metricId]: "" }));
+    setAddValue("");
+  }
+
+  function removeMetric(metricId: string) {
+    setSelectedIds((prev) => prev.filter((id) => id !== metricId));
+    setResults((prev) => {
+      const next = { ...prev };
+      delete next[metricId];
+      return next;
+    });
+  }
 
   function addAction() {
     const value = actionInput.trim();
@@ -119,13 +148,13 @@ export function LogCompletedExperimentDialog({
       date: finishedAt,
     }));
 
-    const attemptResults: AttemptResult[] = goal.metrics
-      .map((metric) => {
-        const raw = results[metric.id]?.trim();
+    const attemptResults: AttemptResult[] = selectedIds
+      .map((id) => {
+        const raw = results[id]?.trim();
         if (!raw) return null;
         const value = Number(raw);
         if (!Number.isFinite(value)) return null;
-        return { metricId: metric.id, value };
+        return { metricId: id, value };
       })
       .filter((r): r is AttemptResult => r !== null);
 
@@ -290,47 +319,94 @@ export function LogCompletedExperimentDialog({
                 Results
               </label>
               <p className="text-[11px] text-muted-foreground">
-                Optional — leave blank to skip a metric.
+                Optional — add the metrics this experiment moved (up to{" "}
+                {goal.metrics.length}).
               </p>
               <div className="flex flex-col gap-2">
-                {goal.metrics.map((metric, index) => (
-                  <div
-                    key={metric.id}
-                    className="flex items-center gap-2 rounded-lg border border-border bg-white/[0.02] px-3 py-2"
-                  >
-                    <span
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ background: metricColor(index) }}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                      {metric.name}
-                    </span>
-                    <span className="shrink-0 text-[10px] text-muted-foreground">
-                      {metricAggregation(metric) === "sum"
-                        ? "this run"
-                        : "best"}
-                    </span>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      value={results[metric.id] ?? ""}
-                      onChange={(e) =>
-                        setResults((prev) => ({
-                          ...prev,
-                          [metric.id]: e.target.value,
-                        }))
-                      }
-                      placeholder={formatMetricValue(metric.currentValue)}
-                      className="h-8 w-24"
-                    />
-                    {metric.unit && (
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {metric.unit}
+                {selectedIds.map((id) => {
+                  const metric = goal.metrics.find((m) => m.id === id);
+                  if (!metric) return null;
+                  const index = goal.metrics.findIndex((m) => m.id === id);
+                  return (
+                    <div
+                      key={id}
+                      className="flex items-center gap-2 rounded-lg border border-border bg-white/[0.02] px-3 py-2"
+                    >
+                      <span
+                        className="size-2 shrink-0 rounded-full"
+                        style={{
+                          background: metricColor(Math.max(index, 0)),
+                        }}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                        {metric.name}
                       </span>
-                    )}
-                  </div>
-                ))}
+                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                        {metricAggregation(metric) === "sum"
+                          ? "this run"
+                          : "best"}
+                      </span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        value={results[id] ?? ""}
+                        onChange={(e) =>
+                          setResults((prev) => ({
+                            ...prev,
+                            [id]: e.target.value,
+                          }))
+                        }
+                        placeholder={formatMetricValue(metric.currentValue)}
+                        className="h-8 w-24"
+                      />
+                      {metric.unit && (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {metric.unit}
+                        </span>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => removeMetric(id)}
+                        aria-label={`Remove ${metric.name}`}
+                      >
+                        <X size={12} />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
+              {available.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={addValue || undefined}
+                    onValueChange={addMetric}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Add another metric" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {available.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => {
+                      if (available[0]) addMetric(available[0].id);
+                    }}
+                    aria-label="Add metric"
+                  >
+                    <Plus size={14} />
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 

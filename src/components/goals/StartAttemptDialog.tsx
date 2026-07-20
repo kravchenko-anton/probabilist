@@ -6,13 +6,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { PredictionRange, formatMetricValue } from "@/components/ui/metric-range"
 import { metricDirection, type Attempt, type MetricPrediction } from "@/data/attempts"
 import { metricAggregation, type Goal, type GoalMetric } from "@/data/goals"
 import { useGoals } from "@/lib/goals-store"
 import { metricColor } from "@/lib/metric-colors"
-import { Check } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
+import { Plus, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
 interface PredictionDraft {
@@ -42,24 +48,51 @@ interface StartAttemptDialogProps {
 
 export function StartAttemptDialog({ open, onOpenChange, goal, attempt }: StartAttemptDialogProps) {
   const { startAttempt } = useGoals()
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [drafts, setDrafts] = useState<Record<string, PredictionDraft>>({})
-  // Only one metric editor is open at a time; the rest collapse to summaries.
-  const [activeMetricId, setActiveMetricId] = useState<string | null>(null)
+  const [addValue, setAddValue] = useState<string>("")
+
+  const available = goal.metrics.filter((m) => !selectedIds.includes(m.id))
 
   useEffect(() => {
     if (!open) return
-    setDrafts(Object.fromEntries(goal.metrics.map((metric) => [metric.id, defaultDraft(metric)])))
-    setActiveMetricId(goal.metrics[0]?.id ?? null)
+    const first = goal.metrics[0]
+    if (first) {
+      setSelectedIds([first.id])
+      setDrafts({ [first.id]: defaultDraft(first) })
+    } else {
+      setSelectedIds([])
+      setDrafts({})
+    }
+    setAddValue("")
   }, [open, goal])
 
-  function updateDraft(metricId: string, draft: PredictionDraft) {
-    setDrafts((prev) => ({ ...prev, [metricId]: draft }))
+  function addMetric(metricId: string | null) {
+    if (!metricId) return
+    const metric = goal.metrics.find((m) => m.id === metricId)
+    if (!metric || selectedIds.includes(metricId)) return
+    setSelectedIds((prev) => [...prev, metricId])
+    setDrafts((prev) => ({ ...prev, [metricId]: defaultDraft(metric) }))
+    setAddValue("")
+  }
+
+  function removeMetric(metricId: string) {
+    setSelectedIds((prev) => prev.filter((id) => id !== metricId))
+    setDrafts((prev) => {
+      const next = { ...prev }
+      delete next[metricId]
+      return next
+    })
   }
 
   function handleStart() {
-    const predictions: MetricPrediction[] = goal.metrics
-      .filter((metric) => drafts[metric.id])
-      .map((metric) => ({ metricId: metric.id, ...drafts[metric.id] }))
+    const predictions: MetricPrediction[] = selectedIds
+      .map((id) => {
+        const draft = drafts[id]
+        if (!draft) return null
+        return { metricId: id, ...draft }
+      })
+      .filter((p): p is MetricPrediction => p !== null)
     startAttempt(attempt.id, predictions)
     onOpenChange(false)
   }
@@ -71,50 +104,57 @@ export function StartAttemptDialog({ open, onOpenChange, goal, attempt }: StartA
           <DialogTitle>Start "{attempt.title}"</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            Before you start, predict where each metric will land. That prediction
-            is what you&apos;ll learn against when you record results.
+            Choose which metrics this experiment will move (up to{" "}
+            {goal.metrics.length || 0}), then predict where each will land.
           </p>
 
-          {goal.metrics.length === 0 && (
+          {goal.metrics.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               This goal has no metrics yet — you can still run the experiment, but there will be
               nothing to predict or measure.
             </p>
-          )}
-
-          <AnimatePresence initial={false}>
-            {goal.metrics.map((metric, index) => {
-              const draft = drafts[metric.id]
-              if (!draft) return null
-              const dir = metricDirection(metric)
-              const isActive = metric.id === activeMetricId
-              const dot = (
-                <span
-                  className="size-2 shrink-0 rounded-full"
-                  style={{ background: metricColor(index) }}
-                />
-              )
-              return (
-                <motion.div
-                  key={metric.id}
-                  layout
-                  transition={{ type: "spring", stiffness: 480, damping: 42, mass: 0.8 }}
-                  className="shrink-0 overflow-hidden"
-                >
-                  {isActive ? (
-                    <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-white/[0.02] px-3 py-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                          {dot}
-                          {metric.name}
+          ) : (
+            <>
+              <div className="flex flex-col gap-2">
+                {selectedIds.map((id) => {
+                  const metric = goal.metrics.find((m) => m.id === id)
+                  const draft = drafts[id]
+                  if (!metric || !draft) return null
+                  const index = goal.metrics.findIndex((m) => m.id === id)
+                  const dir = metricDirection(metric)
+                  return (
+                    <div
+                      key={id}
+                      className="flex flex-col gap-1.5 rounded-xl border border-border bg-white/[0.02] px-3 py-2.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span
+                            className="size-2 shrink-0 rounded-full"
+                            style={{ background: metricColor(Math.max(index, 0)) }}
+                          />
+                          <span className="truncate text-sm font-medium text-foreground">
+                            {metric.name}
+                          </span>
                         </span>
-                        <span className="text-xs text-muted-foreground">
-                          {metricAggregation(metric) === "sum"
-                            ? `total ${formatMetricValue(metric.currentValue)}${metric.unit ?? ""} · need ${formatMetricValue(Math.max(metric.targetValue - metric.currentValue, 0))}${metric.unit ?? ""}`
-                            : `now ${formatMetricValue(metric.currentValue)}${metric.unit ?? ""} · target ${formatMetricValue(metric.targetValue)}${metric.unit ?? ""}`}
-                        </span>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground">
+                            {metricAggregation(metric) === "sum"
+                              ? `total ${formatMetricValue(metric.currentValue)}${metric.unit ?? ""} · need ${formatMetricValue(Math.max(metric.targetValue - metric.currentValue, 0))}${metric.unit ?? ""}`
+                              : `now ${formatMetricValue(metric.currentValue)}${metric.unit ?? ""} · target ${formatMetricValue(metric.targetValue)}${metric.unit ?? ""}`}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => removeMetric(id)}
+                            aria-label={`Remove ${metric.name}`}
+                          >
+                            <X size={12} />
+                          </Button>
+                        </div>
                       </div>
                       <PredictionRange
                         value={
@@ -129,56 +169,54 @@ export function StartAttemptDialog({ open, onOpenChange, goal, attempt }: StartA
                         }
                         worstSide={dir === 1 ? "left" : "right"}
                         onValueChange={([a, b, c]) =>
-                          updateDraft(
-                            metric.id,
-                            dir === 1
-                              ? { worst: a, acceptable: b, best: c }
-                              : { worst: c, acceptable: b, best: a }
-                          )
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [id]:
+                              dir === 1
+                                ? { worst: a, acceptable: b, best: c }
+                                : { worst: c, acceptable: b, best: a },
+                          }))
                         }
                       />
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="xs"
-                        className="self-end"
-                        onClick={() => setActiveMetricId(null)}
-                      >
-                        <Check size={12} />
-                        Done
-                      </Button>
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setActiveMetricId(metric.id)}
-                      className="group flex w-full items-center gap-2 rounded-xl border border-border bg-white/[0.02] px-3 py-2.5 text-left transition-colors hover:bg-white/5"
-                    >
-                      {dot}
-                      <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                        {metric.name}
-                      </span>
-                      <span className="shrink-0 font-logo text-xs tabular-nums">
-                        <span className="text-red-300/90">{formatMetricValue(draft.worst)}</span>
-                        <span className="mx-1 text-muted-foreground/60">→</span>
-                        <span className="text-foreground/80">
-                          {formatMetricValue(draft.acceptable)}
-                        </span>
-                        <span className="mx-1 text-muted-foreground/60">→</span>
-                        <span className="text-emerald-300/90">{formatMetricValue(draft.best)}</span>
-                      </span>
-                    </button>
-                  )}
-                </motion.div>
-              )
-            })}
-          </AnimatePresence>
+                  )
+                })}
+              </div>
 
-          {goal.metrics.length > 0 && (
-            <p className="text-[11px] text-muted-foreground">
-              Drag the lines to set worst, acceptable and best outcomes, or tap a number to type
-              an exact value.
-            </p>
+              {available.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Select value={addValue || undefined} onValueChange={addMetric}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Add another metric" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {available.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={available.length === 0}
+                    onClick={() => {
+                      if (available[0]) addMetric(available[0].id)
+                    }}
+                    aria-label="Add metric"
+                  >
+                    <Plus size={14} />
+                  </Button>
+                </div>
+              )}
+
+              <p className="text-[11px] text-muted-foreground">
+                Drag the lines to set worst, acceptable and best outcomes, or tap a number to type
+                an exact value.
+              </p>
+            </>
           )}
         </div>
 

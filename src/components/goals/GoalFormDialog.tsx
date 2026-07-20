@@ -32,8 +32,6 @@ interface DraftMetric {
   aggregation: MetricAggregation
 }
 
-const MAX_METRICS = 4
-
 const AGGREGATION_OPTIONS: { value: MetricAggregation; label: string; hint: string }[] = [
   { value: "sum", label: "Adds up", hint: "Every experiment stacks onto the total" },
   { value: "max", label: "Best", hint: "The goal keeps your single best experiment" },
@@ -90,7 +88,7 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
       setEmoji(goal.emoji)
       setMetrics(
         goal.metrics.length > 0
-          ? goal.metrics.slice(0, MAX_METRICS).map(draftFromMetric)
+          ? goal.metrics.map(draftFromMetric)
           : [emptyMetric()]
       )
       setActiveMetricId(null)
@@ -316,7 +314,6 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
                 type="button"
                 variant="ghost"
                 size="xs"
-                disabled={metrics.length >= MAX_METRICS}
                 onClick={addMetric}
               >
                 <Plus size={12} />
@@ -463,9 +460,8 @@ export function GoalFormDialog({ open, onOpenChange, goal }: GoalFormDialogProps
               </AnimatePresence>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Drag the lines to set the start and target range, or tap a number to type an exact
-              value. Choose whether each metric stacks across experiments or keeps the best single
-              result. Up to {MAX_METRICS} metrics per goal.
+              Add as many metrics as you need. Each experiment lets you choose which metrics it
+              moves — from one up to all of them.
             </p>
           </div>
         </div>
